@@ -1,0 +1,2829 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>与死神的账本：用微死亡丈量中国人的风险</title>
+<meta name="description" content="与死神的账本：输入年龄、性别与 9 项健康状态，查看带置信区间的存活率曲线；把状态与高危事件折算成等效微死亡，并将统计生命价值折算为人民币。每个数字带来源与边界。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23A94438'/%3E%3Cpath d='M6 22 C 12 22, 14 10, 26 8' stroke='white' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#F4EFE1; --card:#FBF8EF; --line:#DCD4BD; --ink:#2B2A26; --mut:#6E6960;
+    --acc:#A94438; --acc-soft:#F2E3DD; --acc-deep:#8C3327; --warn:#8A5F00; --warn-soft:#F6EFDC;
+    --ok:#0F6E56; --danger:#A32D2D; --ci:#185FA5; --bead:#C9C1AA;
+    --paper-ink:rgba(43,42,38,.028);
+    --font-head:"Songti SC","STSong","SimSun","Noto Serif CJK SC","Source Han Serif SC",Georgia,"Times New Roman",serif;
+    --font-body:Georgia,"Microsoft YaHei","PingFang SC","Hiragino Sans GB","Segoe UI",-apple-system,BlinkMacSystemFont,"Noto Sans CJK SC",sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;color:var(--ink);
+    background:
+      repeating-linear-gradient(0deg, transparent 0 27px, var(--paper-ink) 27px 28px),
+      var(--bg);
+    font-family:var(--font-body);
+    line-height:1.6;font-size:14px;}
+  .wrap{max-width:960px;margin:0 auto;padding:20px 16px 60px;}
+  header h1{font-size:20px;font-weight:600;margin:0 0 4px;}
+  header p{color:var(--mut);margin:0 0 16px;font-size:13px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px;}
+  .card h2{font-family:var(--font-head);font-weight:700;letter-spacing:.02em;font-size:16px;margin:0 0 12px;}
+  .card h3{font-family:var(--font-head);font-weight:700;letter-spacing:.02em;font-size:15px;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}
+  label{display:block;font-size:12px;color:var(--mut);margin-bottom:4px;}
+  input[type=number],input[type=text],select{
+    width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:var(--card);}
+  input:focus,select:focus{outline:none;border-color:var(--acc);}
+  .radios{display:flex;gap:14px;align-items:center;}
+  .radios label{display:flex;align-items:center;gap:5px;margin:0;font-size:14px;color:var(--ink);}
+  .hint{font-size:12px;color:var(--mut);margin-top:6px;}
+  .nums{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0 4px;}
+  .num{flex:1;min-width:120px;background:var(--card);border:1px solid var(--line);border-top:3px solid var(--acc);border-radius:10px 10px 0 0;padding:10px 12px;}
+  .num .k{font-size:12px;color:var(--mut);}
+  .num .v{font-family:Georgia,"Times New Roman",serif;font-size:22px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;}
+  .num .v small{font-size:12px;font-weight:400;color:var(--ci);}
+  canvas{width:100%;height:auto;display:block;background:transparent;border:1px solid var(--line);border-radius:0;}
+  .warn{background:var(--warn-soft);border-left:3px solid var(--warn);padding:8px 12px;border-radius:6px;
+    margin:6px 0;font-size:13px;}
+  .note{background:#EFEAD9;border-left:3px solid var(--mut);padding:8px 12px;border-radius:6px;
+    margin:6px 0;font-size:13px;color:#444;}
+  .event-row{display:flex;align-items:center;gap:10px;margin-top:10px;}
+  .event-list-item{display:flex;justify-content:space-between;align-items:center;
+    padding:8px 12px;border:1px solid var(--line);border-radius:8px;margin-top:6px;}
+  .event-list-item .x{color:var(--danger);cursor:pointer;font-size:16px;padding:0 4px;}
+  .badge{display:inline-block;font-size:12px;color:#fff;background:var(--acc);
+    padding:1px 8px;border-radius:10px;margin-left:6px;}
+  .rel{display:inline-block;font-size:11px;font-weight:600;line-height:1.5;padding:0 7px;border-radius:9px;margin-left:6px;border:1px solid transparent;cursor:help;}
+  .rel-A{color:#0F6E56;background:#E6F4EE;border-color:#bfe3d5;}
+  .rel-B{color:#185FA5;background:#E6F1FB;border-color:#c3dcf5;}
+  .rel-C{color:#7a6200;background:#F7F3DC;border-color:#e6d9a8;}
+  .rel-D{color:#A32D2D;background:#FBEDEB;border-color:#eccfcc;}
+  .src{font-size:12px;color:var(--mut);}
+  .foot{margin-top:24px;font-size:12px;color:var(--mut);border-top:1px solid var(--line);padding-top:12px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums;}
+  th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;}
+  th{color:var(--mut);font-weight:500;font-size:12px;}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .seg button{border:none;background:var(--card);padding:6px 14px;cursor:pointer;font-size:13px;color:var(--mut);}
+  .seg button.active{background:var(--acc);color:#fff;}
+  .field{display:flex;flex-direction:column;}
+  .req{color:var(--danger);}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:7px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer;font-size:13px;color:var(--ink);white-space:nowrap;}
+  .btn:hover{border-color:var(--acc);color:var(--acc);}
+  .btn-primary{background:var(--acc);border-color:var(--acc);color:#fff;}
+  .btn-primary:hover{background:var(--acc-deep);border-color:var(--acc-deep);color:#fff;}
+  .btn-danger{color:var(--danger);border-color:#e8c9c9;}
+  .btn-danger:hover{background:var(--danger);border-color:var(--danger);color:#fff;}
+  .btn-sm{padding:4px 10px;font-size:12px;}
+  /* ============ 二期：章节化 + 出版级视觉 + 响应式 + 报告打印 ============ */
+  .chapter{margin:0 0 40px;scroll-margin-top:72px;}
+  .ch-head{position:relative;padding:6px 36px 10px 0;margin:0 0 16px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:10px;}
+  .ch-head::before{content:"";position:absolute;left:0;bottom:-1px;width:56px;height:3px;background:var(--acc);border-radius:0 2px 0 0;}
+  .ch-head::after{content:"";position:absolute;right:4px;top:2px;
+    width:22px;height:22px;border:2px solid var(--acc);
+    box-shadow: inset 0 0 0 2px var(--card), inset 0 0 0 3px var(--acc);
+    background: radial-gradient(ellipse at 30% 30%, rgba(255,255,255,.22), transparent 62%), var(--acc-soft);
+    transform: rotate(-8deg);opacity:.92;}
+  .ch-head .no{font-family:var(--font-head);font-weight:700;font-size:27px;color:var(--acc);vertical-align:2px;}
+  .ch-head h2{font-family:var(--font-head);font-weight:700;letter-spacing:.02em;font-size:21px;margin:0;color:var(--ink);}
+  .ch-lead{font-size:14px;color:var(--ink);line-height:1.9;max-width:60em;}
+  .ch-lead p{margin:0 0 10px;}
+  .ch-lead b{color:var(--ink);}
+  .cover{padding:26px 0 6px;position:relative;}
+  .cover::after{content:"";position:absolute;right:6px;top:6px;
+    width:26px;height:26px;border:2px solid var(--acc);
+    box-shadow: inset 0 0 0 2px var(--card), inset 0 0 0 3px var(--acc);
+    background: radial-gradient(ellipse at 30% 30%, rgba(255,255,255,.22), transparent 62%), var(--acc-soft);
+    transform: rotate(-8deg);opacity:.92;}
+  .cover h1{position:relative;padding:10px 46px;text-align:center;font-family:var(--font-head);font-size:32px;font-weight:700;letter-spacing:.02em;margin:0 0 14px;color:var(--ink);
+    border-top:1px solid var(--ink);border-bottom:3px double var(--acc);}
+  .cover h1::before,.cover h1::after{content:"";position:absolute;width:34px;height:10px;border-radius:5px;
+    background:linear-gradient(180deg, #8A8578, #E6E0CD);}
+  .cover h1::before{left:0;top:-5.5px;}
+  .cover h1::after{right:0;top:-5.5px;}
+  .cover .subtitle{font-family:var(--font-head);font-size:16px;font-weight:400;letter-spacing:.08em;color:var(--acc-deep);text-align:center;margin:-2px 0 16px;}
+  .cover .tag{font-size:15px;color:var(--ink);max-width:60em;line-height:1.95;margin:0 0 12px;text-indent:2em;}
+  .cover .tag b.hl{font-family:var(--font-head);font-size:1.15em;color:var(--acc-deep);font-weight:700;}
+  .cover .meta{color:var(--mut);font-size:12px;margin:4px 0 0;line-height:1.8;border-top:1px solid var(--line);padding-top:8px;}
+  .age-warn{display:none;margin:8px 0 0;padding:8px 12px;border:1px solid #A32D2D;border-radius:8px;background:#FBEDEB;color:#A32D2D;font-size:13px;font-weight:600;}
+  .age-warn.show{display:block;}
+  .proto{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:6px 0 4px;}
+  .proto .p{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--card);
+    border-left:2px solid var(--ink);box-shadow: inset 2px 0 0 var(--card), inset 4px 0 0 var(--ink);}
+  .proto .p b{display:block;margin-bottom:4px;font-size:14px;font-family:var(--font-head);}
+  .proto .p span{font-size:13px;color:#3d3d3d;}
+  .chapters{position:sticky;top:0;z-index:50;background:var(--card);border:1px solid var(--line);border-top:3px solid var(--acc);border-radius:0 0 10px 10px;display:flex;gap:2px;overflow-x:auto;margin:12px 0 6px;padding:6px;box-shadow:0 1px 4px rgba(43,42,38,.08);
+    mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);
+    -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);}
+  .chapters a{flex-shrink:0;padding:9px 14px;font-size:13px;color:var(--mut);text-decoration:none;border-radius:7px;white-space:nowrap;}
+  .chapters a:hover{color:var(--acc-deep);}
+  .chapters a.active{background:var(--acc);color:#fff;font-weight:600;box-shadow:inset 0 -2px 0 var(--acc-deep);}
+  a.cite{color:inherit;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px;}
+  a.cite:hover{color:var(--acc-deep);}
+  summary a{color:inherit;}
+  #chapterProgress{position:absolute;left:0;bottom:0;height:2px;background:var(--acc);width:0;pointer-events:none;}
+  /* 悬垂气泡（二期 P0） */
+  #chartWrap{position:relative;width:100%;}
+  #chart{cursor:crosshair;touch-action:pan-y;}
+  #chartOverlay{position:absolute;left:0;top:0;width:100%;height:auto;pointer-events:none;border:none;background:transparent;}
+  #chartBubble{position:absolute;display:none;background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 2px 10px rgba(43,42,38,.12);padding:8px 10px;font-size:12px;line-height:1.7;pointer-events:none;z-index:30;max-width:min(240px, calc(100vw - 24px));transition:opacity .4s;}
+  #chartBubble.fade{opacity:0;}
+  #chartBubble b{color:var(--ink);}
+  #chartBubble .row{display:flex;justify-content:space-between;gap:12px;white-space:normal;}
+  #chartBubble .row>*:last-child{white-space:nowrap;}
+  /* 展开著录（9 字段） */
+  .lou{display:none;margin:8px 0 0;padding:10px 12px;background:#F7F2E6;border:1px dashed var(--line);border-radius:8px;font-size:12px;color:#3d3d3d;}
+  .lou.open{display:block;}
+  .lou table{font-size:12px;}
+  .lou th{width:92px;white-space:nowrap;vertical-align:top;text-align:left;}
+  .event-list-item{cursor:pointer;}
+  /* 参考文献与折叠卡换行（360px 视口无横向滚动，t16 修复） */
+  .refs{list-style:none;padding-left:22px;margin:8px 0;max-width:100%;}
+  .refs li{overflow-wrap:anywhere;margin:6px 0;scroll-margin-top:72px;}
+  details{max-width:100%;overflow-wrap:anywhere;border-bottom:1px solid var(--line);}
+  details[open]{padding-bottom:8px;}
+  summary{max-width:100%;overflow-wrap:anywhere;padding:8px 0;cursor:pointer;color:var(--acc-deep);font-weight:600;}
+  /* 认知对照 + 微寿命 */
+  .compare-note{border-left:3px solid #7a6200;background:#F7F2E2;padding:8px 12px;border-radius:6px;margin:6px 0;font-size:13px;}
+  .microbars{display:flex;flex-direction:column;gap:8px;margin:10px 0;}
+  .microbars .mb{display:flex;align-items:center;gap:10px;font-size:13px;}
+  .microbars .mb .lab{width:160px;flex-shrink:0;}
+  .microbars .mb .bar{flex:1;height:16px;background:var(--bg);border:1px solid var(--line);border-radius:8px;overflow:visible;position:relative;}
+  .microbars .mb .fill{display:block;width:var(--w,0);height:100%;background:var(--acc);opacity:.85;border-radius:8px;position:relative;}
+  .microbars .mb .fill::after{content:"";position:absolute;right:-5px;top:50%;margin-top:-5px;width:10px;height:10px;border-radius:50%;background:var(--acc);}
+  .microbars .mb .val{width:120px;flex-shrink:0;color:var(--acc-deep);font-weight:600;font-family:Georgia,"Times New Roman",serif;font-variant-numeric:tabular-nums;}
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap;}
+  /* 响应式断点（二期 §4.2） */
+  @media (max-width:767px){
+    .card{padding:12px;}
+    .wrap{padding:14px 10px 48px;}
+    .cover h1{font-size:24px;}
+    .nums .num{min-width:calc(50% - 12px);}
+    .grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));}
+  }
+  @media (max-width:479px){
+    .grid{grid-template-columns:1fr;}
+    .nums .num{min-width:100%;}
+    .ch-head h2{font-size:17px;}
+    .ch-head .no{font-size:20px;}
+    .ch-head{padding-right:28px;}
+    .ch-head::after{width:16px;height:16px;}
+    .cover h1{font-size:21px;padding:10px 26px;}
+    .cover h1::before,.cover h1::after{width:20px;height:8px;}
+    .cover::after{width:20px;height:20px;}
+    .cover .subtitle{font-size:13px;letter-spacing:.06em;}
+    .microbars .mb .lab{width:110px;}
+    .microbars .mb .val{width:90px;}
+    .risk-val{width:96px !important;font-size:11px;}
+  }
+  /* 打印（个人风险报告，二期 §4.3）：屏幕隐藏 #printRoot，打印时只显示它 */
+  #printRoot{display:none;}
+  @media print{
+    body{background:#fff;}
+    body>*:not(#printRoot){display:none !important;}
+    #printRoot{display:block !important;font-size:10.5pt;line-height:1.7;color:#000;}
+    #printRoot h1,#printRoot h2{font-family:var(--font-head);}
+    #printRoot h1{font-size:16pt;margin:0 0 2mm;}
+    #printRoot h2{font-size:12.5pt;margin:5mm 0 2mm;border-bottom:3px double #000;padding-bottom:1mm;}
+    #printRoot img{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
+    .cover::after,.cover h1::before,.cover h1::after,.ch-head::before,.ch-head::after,.microbars .mb .fill::after{content:none !important;}
+    #printRoot table{width:100%;border-collapse:collapse;font-size:10.5pt;}
+    #printRoot th,#printRoot td{border:1px solid #000;padding:1.2mm 2mm;text-align:left;}
+    #printRoot table,#printRoot tr,#printRoot h2,#printRoot .fig,#printRoot canvas{break-inside:avoid;page-break-inside:avoid;}
+    #printRoot .disc{font-size:9pt;color:#000;}
+    #printRoot canvas{max-width:100%;max-height:170mm;border:1px solid #000;}
+    #printRoot .report-head{display:flex;justify-content:space-between;font-size:9pt;border-bottom:1px solid #000;padding-bottom:1mm;margin-bottom:3mm;}
+    #printRoot .report-foot{margin-top:4mm;font-size:9pt;border-top:1px solid #000;padding-top:1mm;display:flex;justify-content:space-between;}
+
+    #printRoot .fig{font-size:9.5pt;text-align:center;margin:1mm 0 3mm;}
+    #printRoot ol{margin:2mm 0 0;padding-left:5mm;}
+  }
+  @page{size:A4 portrait;margin:18mm 15mm 20mm;}
+</style>
+</head>
+<body>
+<div id="disclaimer" style="background:var(--warn-soft);border-bottom:1px solid var(--line);padding:10px 16px;font-size:13px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+  <span><b>请先了解：</b>本工具只做「风险大小」的科普比较，<b>不预测寿命、不构成任何医疗或保险建议</b>，结果不能用于个体医疗决策或保险定价。文中的寿命收支等所有时间维度数字，都是「当前状态」相对「同龄同性别平均」的差值，不是对个人寿命的预言。如因此感到焦虑或不安，请拨打全国心理援助热线 <b>12356</b>。继续使用即表示你已理解。</span>
+  <button type="button" id="disclaimerOk" class="btn btn-sm btn-primary">我知道了</button>
+</div>
+<div class="wrap">
+  <nav class="chapters" id="chapterNav" aria-label="章节目录">
+    <a href="#prologue" data-ch="prologue" class="active">序</a>
+    <a href="#ch1" data-ch="ch1">第1章 风险换算</a>
+    <a href="#ch2" data-ch="ch2">第2章 数据与来源</a>
+    <a href="#ch3" data-ch="ch3">第3章 个人状态</a>
+    <a href="#ch4" data-ch="ch4">第4章 价格</a>
+    <a href="#ch5" data-ch="ch5">第5章 微寿命</a>
+    <a href="#epilogue" data-ch="epilogue">尾声</a>
+    <div id="chapterProgress" aria-hidden="true"></div>
+  </nav>
+  <header class="cover" id="prologue">
+    <h1>与死神的账本</h1>
+    <p class="subtitle">用微死亡丈量中国人的风险</p>
+    <p class="tag">大多数人终其一生，都没有机会把自己的死亡风险摆到桌面上仔细看上一眼。不是数字不存在——它们散落在生命表、流行病学研究和政府统计公报里——而是它们从未被翻译成普通人能看懂、能比较、能使用的语言。这本小册子就做这一件事。</p>
+    <p class="tag">国家卫生健康委数据显示，我国每年因伤害死亡约 <b class="hl">68 万</b>人，约占全部死亡的 7%；道路交通伤害、跌倒、自杀、溺水、中毒五大类占伤害死亡的 84%——其中相当一部分，本可以通过知情与预防来避免。全国居民健康素养水平 2022 年已达 27.78%，2030 年的目标是 30%。「每个人是自己健康的第一责任人」，而负起责任的第一步，是把风险看清楚。</p>
+      <p class="src" style="margin-top:4px;">数据来源：伤害死亡规模与构成依据国家卫生健康委/中国疾控死因监测数据（见参考文献 [1]）；全国居民健康素养水平 27.78% 见国家卫生健康委《2022 年中国居民健康素养监测情况》（2023 年发布，nhc.gov.cn）。</p>
+    <p class="tag">尺子名叫「微死亡」（micromort）：百万分之一的死亡概率。抽一枚公平硬币、连续 20 次都正面朝上——概率约 1/100 万，差不多就是 1 个微死亡。它小到「几乎不会发生」，但「几乎」不是「绝不」。下面三位朋友，都需要这把尺子：</p>
+    <div class="proto">
+      <div class="p"><b>周平 · 相信平均</b><span>凡事讲究「平均」。他的逻辑是：大多数人都这么活，我也这么活，错不到哪去。他缺的是——「平均」到底长什么样。</span></div>
+      <div class="p"><b>秦远 · 攀岩爱好者</b><span>信奉「风险是体验的一部分」。他不怕死，但怕死得不明不白：可以为一座山付代价，前提是价码清清楚楚。</span></div>
+      <div class="p"><b>林安 · 三个孩子的母亲</b><span>不追求刺激，只追求一家人平平安安。她怕的不是死亡，而是死亡背后的不确定：「知道什么更危险，我就离它远一点。」</span></div>
+    </div>
+    <p class="meta">微死亡（micromort）= 百万分之一的死亡概率。例如「跳伞 8 微死亡」＝ 跳一次伞，有 8/100 万的概率因此死亡。本工具只做风险大小的科普比较，<b>不预测寿命、不构成任何医疗或保险建议</b>。</p>
+    <p class="meta">三位朋友的原型取自 Bland &amp; Spiegelhalter《The Norm Chronicles》（Profile Books, 2013），此处按中文语境改写为周平、秦远、林安。</p>
+  </header>
+
+  <!-- ============ 第1章：风险换算 ============ -->
+  <section class="chapter" id="ch1">
+    <div class="ch-head"><span class="no">第1章</span><h2>风险换算——把风险放在同一把尺子上</h2></div>
+    <div class="ch-lead">
+      <p>「微死亡」这个词大约在 1980 年由美国斯坦福大学的罗纳德·霍华德（Ronald A. Howard）提出，用来比较小概率、高后果的风险；把它带进大众视野的，是英国剑桥大学统计学家戴维·斯皮格豪特（David Spiegelhalter）的普及写作。量级直觉：连抛 20 次硬币全是正面，概率约 1/100 万——某项活动若带来 1 个微死亡的风险，「出事」的概率就与之相当。</p>
+      <p>斯皮格豪特书中的常用锚点（<b>英美口径</b>，与中国数据不完全可比，仅用来建立直觉）：全身麻醉 5 微死亡/次、水肺潜水 5–7、商业航班 0.02、骑马 0.5、登珠峰 43000。注：本工具事件表中「全身麻醉」采用医学文献口径 10 微死亡/次（死亡率 1/10 万），与书中的 5 微死亡/次不同，两者均作量级参考。另请注意「次」与「年」的口径区别：跳一次伞按「次」计，从事某职业按「年」计，两者要先统一成「每年」再比——本工具已逐条标注单位口径。</p>
+      <p>没有分母的数字不能换算：中国登山协会年度事故报告显示，户外登山 2024 年报告死亡 44 起、2025 年 77 起（信度 B），但因缺乏全国参与人次的可靠分母，无法换算成微死亡，这里只呈现「年度死亡起数」趋势，不进事件表。</p>
+    </div>
+    <div class="card">
+      <h2>风险换算</h2>
+      <p class="src">把任意一个「状态」（生活方式，乘算）或「事件」（加算）折算成每年额外的微死亡，横向对比谁更危险。状态系数按「当前基准」的年龄、性别换算，随年龄放大；事件恒定。</p>
+      <div class="note" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin:0 0 10px;">
+        <span>当前基准：<b id="evBase">—</b></span>
+        <button type="button" id="evGoCurve" class="btn btn-sm" style="color:var(--acc);">修改</button>
+      </div>
+      <div class="event-row">
+        <div class="field" style="flex:2;"><label>选择风险因素</label>
+          <select id="evSelect"></select>
+        </div>
+        <div class="field" style="flex:1;"><label id="evQtyLabel">每年数量</label>
+          <input type="number" id="evQty" value="1" min="0" step="any">
+        </div>
+        <div class="field" style="flex:1;"><label>&nbsp;</label>
+          <button id="evAdd" class="btn btn-primary" style="width:100%;">添加</button>
+        </div>
+      </div>
+      <div class="hint" id="evPreview">—</div>
+    </div>
+
+    <div class="card">
+      <h2>已换算要素 <span class="badge" id="evTotal">事件累计 0 微死亡/年</span> <button id="eqShuffle" type="button" class="btn btn-sm" style="float:right;color:var(--mut);">换一批参照</button></h2>
+      <div class="hint" style="color:var(--mut);margin-top:0;">列表按风险降序。「事件」默认仅作对比（不叠加，避免与生命表基线重复计数）；「状态」始终仅作对比。勾选下方选项可把事件主动叠加进生存曲线。</div>
+      <label class="checkline" style="display:flex;align-items:flex-start;gap:6px;margin-top:6px;font-size:12.5px;color:var(--mut);cursor:pointer;">
+        <input type="checkbox" id="evInCurve" style="margin:2px 0 0;"> 把「事件」计入我的生存曲线（主动叠加，仅作「如果我真去做」的量级近似）
+      </label>
+      <p class="src" id="evInCurveNote" style="display:none;margin:4px 0 0;">⚠️ 已计入事件：这些是全人群/条件平均率，与生命表基线存在重复计数，会高估风险；仅供量级参考，不作为个人风险结论。</p>
+      <div id="evList"><div class="hint" style="color:var(--mut);">还没有记录。</div></div>
+    </div>
+
+    <div class="card">
+      <h2>数据信度分级（A/B/C/D）</h2>
+      <p class="src" style="margin-top:0;">每个风险数值按来源权威度分四级，列表与下拉框中的 <span class="rel rel-A">A</span><span class="rel rel-B">B</span><span class="rel rel-C">C</span><span class="rel rel-D">D</span> 徽章即对应等级。等级越低，数值越只能当「量级参考」，不能当作精确值。</p>
+      <div style="display:grid;grid-template-columns:1fr;gap:8px;">
+        <div style="border-left:3px solid #0F6E56;padding-left:10px;"><b style="color:#0F6E56;">A · 官方统计</b>　政府机构直接公布。<br><span style="color:var(--mut);font-size:12px;">例：二手烟暴露 135（国家卫健委 2020）、骑摩托车（公安部）。</span></div>
+        <div style="border-left:3px solid #185FA5;padding-left:10px;"><b style="color:#185FA5;">B · 行业协会 / 专业机构</b>　行业或专业组织统计。<br><span style="color:var(--mut);font-size:12px;">例：远洋渔民 2140（渔业互保协会）、跳伞（USPA/BPA）、驾驶汽车（高速公路）。</span></div>
+        <div style="border-left:3px solid #7a6200;padding-left:10px;"><b style="color:#7a6200;">C · 学术研究 / 数据库</b>　经同行评议的研究或学术数据库。<br><span style="color:var(--mut);font-size:12px;">例：登珠峰、马拉松、攀岩、医疗手术（全麻、剖腹产等）。</span></div>
+        <div style="border-left:3px solid #A32D2D;padding-left:10px;"><b style="color:#A32D2D;">D · 自媒体 · 转引（仅量级参考）</b>　官方不公布、仅有自媒体推算或转引。<br><span style="color:var(--mut);font-size:12px;">例：缉毒警察 4750、外卖骑手 65、消防员 165、高空外墙清洗 600 等高危职业——官方不公布「特定职业每 10 万人死亡率」，此类数值只能作量级参考，误差可达数倍。</span></div>
+      </div>
+      <p class="src" style="margin-bottom:0;">各条目的具体来源已就地显示（选中事件即见）；信度分级的完整定义、D 级「无法升档」的溯源结论见第2章。D 级条目在事件选择与列表中已按量级区间（约 ±5%–20%，长途货运司机除外）标注，曲线按量级区间中值计入。事件微死亡数据年份跨度 1922–2024，安全形势变化可能使旧年份条目偏离当前水平，量级区间与年份见各条目标注。点击下方「已换算要素」列表中的任一条目，可展开该条目的完整出版级著录。</p>
+    </div>
+
+    <div class="card">
+      <h2>认知对照（仅展示，不计入事件）</h2>
+      <p class="src" style="margin-top:0;">媒体上被反复报道的风险，往往不等于统计上更常见的风险。以下两条按同一套「年微死亡」口径换算，只为建立参照——它们<b>不参与事件加算、不进存活曲线</b>。</p>
+      <div class="compare-note">
+        <div><b>自杀 45.9 微死亡/年</b><span>换算式：(4.31×91425 + 5.11×49835)/141260 = 4.59/10 万 ×10 = 45.9。来源：《中国卫生健康统计年鉴 2023》「自杀」分项（2021，信度 A，城市/农村加权）。</span></div>
+        <div><b>被杀 2.2 微死亡/年</b><span>换算式：(0.22×91425 + 0.23×49835)/141260 = 0.22/10 万 ×10 = 2.2。来源：同上「被杀」分项（2021，信度 A）——约为道路交通死亡（监测口径）的 1/50：媒体对罕见暴力的放大，远大于它对数字的忠实。</span></div>
+      </div>
+      <p class="src" style="margin-bottom:0;">如果你或身边的人正处在情绪低谷，请拨打全国统一心理援助热线 <b>12356</b>（国家卫健委设置，2025 年 5 月 1 日起全国 31 省区市全部开通，提供心理健康教育、心理咨询、心理疏导与心理危机干预服务，每日不少于 18 小时）。数字会说话，但人需要的是对话。</p>
+    </div>
+  </section>
+
+  <!-- ============ 第2章：数据与来源 ============ -->
+  <section class="chapter" id="ch2">
+    <div class="ch-head"><span class="no">第2章</span><h2>数据与来源——每个数字的来历</h2></div>
+    <div class="ch-lead">
+      <p>一个反直觉的事实：人的年死亡风险不是匀速上升，而是大约每 8 年翻一番（Gompertz 定律）。所以 40 岁男性的背景死亡风险「只有」约 1015 微死亡/年（中国人身保险业经验生命表 CL4，2025；保险人群经验死亡率通常略低于一般人口），而高龄段的数字会大得多——这正是老龄化本身的样子。所有状态系数都锚定到中国成人调查的人群平均，因此「平均人」的曲线就是生命表曲线本身 <a class="cite" href="#ref-7">[7]</a>。</p>
+      <p>每个事件条目都可点开九项出版级著录，全部外部资料见文末附录<a href="#refs">《参考文献》</a>。</p>
+    </div>
+    <div class="card">
+      <h2>微死亡数据 · 信度分级与溯源</h2>
+      <p class="src" style="margin-top:0;">每个风险数值按来源权威度分四级（对应事件后的徽章）。等级越低，数值越只能当「量级参考」，不能当精确值。</p>
+      <div style="display:grid;grid-template-columns:1fr;gap:8px;">
+        <div style="border-left:3px solid #0F6E56;padding-left:10px;"><b style="color:#0F6E56;">A · 官方统计</b>　政府机构直接公布，可追溯到具体统计公报/年鉴 + 年份。<br><span style="color:var(--mut);font-size:12px;">例：二手烟暴露 135（国家卫健委《中国吸烟危害健康报告 2020》）、骑摩托车（公安部）。</span></div>
+        <div style="border-left:3px solid #185FA5;padding-left:10px;"><b style="color:#185FA5;">B · 行业协会 / 专业机构</b>　行业或专业组织统计，有明确机构 + 统计口径。<br><span style="color:var(--mut);font-size:12px;">例：远洋渔民 2140（中国渔业互保协会）、跳伞（USPA/BPA）、驾驶汽车（世界银行）。</span></div>
+        <div style="border-left:3px solid #7a6200;padding-left:10px;"><b style="color:#7a6200;">C · 学术研究 / 数据库</b>　同行评议论文或长期统计数据库的估计。<br><span style="color:var(--mut);font-size:12px;">例：登珠峰（喜马拉雅数据库 1922–2012）、马拉松、攀岩、医疗手术。</span></div>
+        <div style="border-left:3px solid #A32D2D;padding-left:10px;"><b style="color:#A32D2D;">D · 自媒体 · 转引（仅量级参考）</b>　官方不公布、仅有自媒体推算或转引。<br><span style="color:var(--mut);font-size:12px;">例：缉毒警察 4750、外卖骑手 65、消防员 165、高空外墙清洗 600 等高危职业。</span></div>
+      </div>
+      <p class="src" style="margin:10px 0 0;">D 级条目在事件选择与列表中已按量级区间（约 ±5%–20%，长途货运司机除外）标注，曲线按量级区间中值计入。事件微死亡数据年份跨度 1922–2024，安全形势变化可能使旧年份条目偏离当前水平，量级区间见条目标注。</p>
+      <p class="src" style="margin-top:0;">D 级无法升档是数据体制现实：官方不公布特定职业死亡率。展开看原因与旁证表。</p>
+      <details>
+        <summary>为什么 D 级「数值本身」无法升档</summary>
+        <h3 style="font-size:15px;margin:12px 0 8px;">为什么 D 级「数值本身」无法升档</h3>
+      <p class="src" style="margin-top:0;">这是数据体制的现实，不是偷懒：官方（应急管理部、住建部、国家统计局等）几乎<b>不公布「特定职业每 10 万人死亡率」</b>，只公布两类——①「工矿商贸大类」整体每 10 万人死亡率（1.09，2024）；②各领域的绝对死亡人数（如「2023 年房屋市政工程事故 583 起、死亡 635 人」）。</p>
+      <p class="src">因此自媒体那些「每 10 万人死亡率」本质是「绝对数 ÷ 推测的从业人数」的推算，无法从官方直接替换。部分 D 级可补官方/学术<b>旁证</b>，让「量级」有个锚，但数值仍只能作量级参考：</p>
+      <table>
+        <tr><th>条目</th><th>旁证（仅佐证量级，非直接口径）</th></tr>
+        <tr><td>消防员 165</td><td>应急管理部「2018–2022 转制 4 年共 139 人牺牲」；公安部「2011 年每 10 万次火灾牺牲 4.8 人」</td></tr>
+        <tr><td>建筑高空作业 90</td><td>住建部「2023 年房屋市政工程事故 583 起、死亡 635 人」</td></tr>
+        <tr><td>外卖骑手 65</td><td>学术研究：Li 2020（南京，2019 上半年 3357 起事故、3 亡）、Zheng 2019（上海，平均每 2.5 天 1 名骑手伤亡）</td></tr>
+        <tr><td>长途货运司机 110</td><td>⚠️ 来源分歧极大：自媒体 10–12/10 万，中国交通运输协会「约万分之五」（≈50/10 万），媒体「高达 5‰」（≈500/10 万），相差 10–50 倍</td></tr>
+        <tr><td>缉毒警察 4750</td><td>涉密，官方不可能公开，永久为量级参考</td></tr>
+      </table>
+      </details>
+    </div>
+
+    <div class="card">
+      <h2>状态系数 · 人群平均参照值（锚定到哪）</h2>
+      <p class="src" style="margin-top:0;">每个状态系数先按「理想健康」算原始系数，再除以「中国成人人群平均参照值 μ 处的原始系数」，即 <b>f_新 = f_旧 / f_旧(μ)</b>。效果：平均人（各项=μ）得到系数 1，落在生命表曲线上；更健康者 &lt;1、更高危者 &gt;1。下表为 μ（来源见各系数文献，均为中国成人调查）。</p>
+      <table>
+        <tr><th>系数</th><th>单位</th><th>平均参照值 μ（男 / 女）</th><th>锚定后是否变化</th></tr>
+        <tr><td>吸烟</td><td>支/天</td><td>8 / 0.3（全体平均，含不吸烟者）</td><td>变（大）</td></tr>
+        <tr><td>饮酒</td><td>克纯酒精/周</td><td>135 / 20（全体平均，含不饮酒者）</td><td>变（中）</td></tr>
+        <tr><td>血压（收缩压）</td><td>mmHg</td><td>分年龄：18–44≈122、45–59≈134、60+≈143</td><td>变（中，随年龄）</td></tr>
+        <tr><td>静息心率</td><td>次/分</td><td>74 / 74</td><td>变（小）</td></tr>
+        <tr><td>LDL-C</td><td>mmol/L</td><td>2.9 / 2.6</td><td>变（小）</td></tr>
+        <tr><td>BMI</td><td>kg/m²</td><td>24.2 / 23.7</td><td>不变（μ 落在 22.5–25 区间内）</td></tr>
+        <tr><td>腰围</td><td>cm</td><td>84 / 80</td><td>不变（μ≤参照值）</td></tr>
+        <tr><td>空腹血糖</td><td>mmol/L</td><td>5.5 / 5.3</td><td>不变（μ≤5.6）</td></tr>
+        <tr><td>睡眠时长</td><td>小时</td><td>7.0 / 7.0</td><td>不变（μ=7）</td></tr>
+      </table>
+      <details>
+        <summary>μ 值来源明细（9 项） <a class="cite" href="#ref-26">[26]</a><a class="cite" href="#ref-27">[27]</a><a class="cite" href="#ref-28">[28]</a><a class="cite" href="#ref-29">[29]</a></summary>
+        <p class="src" style="margin-bottom:0;">来源：吸烟=GATS 中国 2018（N≈1.94 万）；饮酒=中国居民营养与健康状况监测 2015–2017（N≈18.2 万）；血压=中国高血压调查 CHS 2015–2017；心率=大样本人群调查（概数 ±3）；LDL-C=全国社区研究（20 万人）+ 体检队列（28 万人）；BMI=中国居民营养与慢性病状况报告 2020；腰围=全国社区研究（20 万人）；血糖=全国社区研究 + 体检队列；睡眠=2025 年中国睡眠健康调查报告。血压分年龄三档，其余用全成人均值（未分年龄，已标注局限）；未成年（&lt;18）无对应均值，取 18–44 档近似。</p>
+      </details>
+    </div>
+
+    <div class="card">
+      <h2>综合风险 · 校准参数（取值与来源）</h2>
+      <p class="src" style="margin-top:0;">综合风险不是 9 个系数简单连乘，而是「生活方式簇 × 代谢簇」两簇各校准后相乘，再乘上<b>心率、睡眠</b>两个独立因素（它们不在任何锚内，直接乘、不缩放）。为什么这样分、为什么一个线性一个饱和，见页脚「方法与局限」。三个校准参数的取值与来源：</p>
+      <table>
+        <tr><th>参数</th><th>取值</th><th>来源</th></tr>
+        <tr><td>k1（生活方式簇缩放）</td><td>1.12</td><td>CKB 2019（IJBNPA，48.7 万人）「5 因素全不健康 vs 全健康」HR 0.32 的倒数 3.13 ÷ 单因素连乘 2.80（连乘低估联合效应，故放大） <a class="cite" href="#ref-25">[25]</a></td></tr>
+        <tr><td>CAP（代谢簇饱和上界）</td><td>1.92</td><td>Li 2016（PLOS ONE，45,542 人，中位随访 7.44 年）代谢 5 成分全超标全因死亡 HR 1.92 <a class="cite" href="#ref-24">[24]</a></td></tr>
+        <tr><td>τ（代谢簇饱和形状）</td><td>固定 1.3</td><td>Wu 2010（Eur J Epidemiol，21 项前瞻队列、37.2 万人）代谢综合征全因死亡 RR 1.46（95%CI 1.35–1.57）反推——使典型代谢画像（连乘 1.915）显示落在该区间 <a class="cite" href="#ref-13">[13]</a></td></tr>
+      </table>
+      <div class="hint" style="margin-top:10px;">τ 是模型里「代谢簇饱和封顶压掉多少重复计数」的形状参数，属于方法假设、不是你的健康事实，故不对普通用户开放调整，默认固定 <b>1.3</b>（21 项研究、37 万人荟萃分析的区间中点）。结果的「不确定」已由存活率曲线上的置信区间带表达。</div>
+      <details style="margin-top:10px;">
+        <summary style="cursor:pointer;color:var(--acc-deep);font-weight:600;">高级：调整 τ（仅建议研究者 / 较真者打开）</summary>
+        <div style="margin-top:10px;">
+          <label>代谢风险校准（τ）：<span id="tauVal" style="font-weight:600;color:var(--acc);">1.3</span></label>
+          <input type="range" id="tauSlider" min="0.9" max="1.9" step="0.1" value="1.3" style="width:100%;">
+          <div class="hint" id="tauHint">肥胖、高血压、高血糖、高血脂常是同一个「代谢综合征」的不同表现，一项一项相乘会把风险算高。这个滑块决定「压掉多少重复」：<b>往左</b>少压（风险显示偏高、更谨慎），<b>往右</b>多压（风险显示偏低）。默认 <b>1.3</b>，让典型代谢综合征显示 <b id="tauExample">1.46</b> 倍——这是 21 项研究、37 万人的荟萃分析给出的代谢综合征全因死亡风险（1.35–1.57）的中间值；往左到 0.9 约显示 1.59 倍、往右到 1.9 约显示 1.35 倍。</div>
+        </div>
+      </details>
+    </div>
+
+    <div class="card">
+      <h2>VSL · 28 篇系统评价 → 24 篇内嵌</h2>
+      <p class="src" style="margin-top:0;">价格 tab 的 VSL 数据来自《基于支付意愿法中国统计生命价值系统评价》（那艺诺等，中国公共卫生 2025, 41(2):239-245，DOI:10.11847/zgggws1145373），共纳入 <b>28 篇</b>研究 <a class="cite" href="#ref-14">[14]</a>。</p>
+      <details>
+        <summary>28→24 篇折算口径与方法</summary>
+        <p class="src">但跨期折算需要「调查年份」（数据发生年，非发表年份）。28 篇中有 <b>4 篇缺调查年份</b>，无法折算到今日，故实际内嵌 <b>24 篇</b>（市场行为 2 篇 + 个人意愿 22 篇）。</p>
+        <p class="src">折算口径：市场行为（工资补偿，CWD）按城镇居民人均可支配收入折算（弹性 ε=1）；个人意愿（问卷，CV/DCE）按 CPI（购买力）折算；基准 2025 年。</p>
+        <p class="src">为什么同一「命」价格差近百倍：不是命有贵贱，而是方法不同——<b>市场行为</b>捕捉真实支付行为、数值偏高；<b>个人意愿</b>受假设偏差影响、跨度大；且调查年份、样本人群、风险类型各不相同。</p>
+      </details>
+      <p class="src" style="margin-bottom:0;">单点参考可取市场行为口径较低值（约 ¥3.28 / 微死亡），问卷口径看区间而非单值。</p>
+    </div>
+
+  </section>
+
+  <!-- ============ 第3章：个人状态 ============ -->
+  <section class="chapter" id="ch3">
+    <div class="ch-head"><span class="no">第3章</span><h2>个人状态——你的账本</h2></div>
+    <div class="ch-lead">
+      <p>这一章是整个工具的核心：填入年龄、性别与九项健康指标，它会画出「和你数据相同的 100 万人」的平均生存曲线。这是 100 万人的平均命运，不是你的命运——个体可能落在蓝带内任何位置，也可能落在带外。它不预测寿命。</p>
+      <p>蓝带是置信区间：来自对各状态系数「估计不确定」的 1000 次蒙特卡洛抽样，数字卡取其中位数，与曲线同源。把指针放到曲线上，可查看每个时间点的详细数值（手机上用手指按住拖动，松手后数值保留约 2 秒）。本章末尾的「个人风险报告」可打印（浏览器打印对话框里另存为 PDF）或复制文本摘要——报告只含你输入的数值与计算结果，不含姓名等个人识别信息。</p>
+    </div>
+    <div class="card">
+      <h2>状态档案</h2>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <select id="instSelect" style="flex:2; min-width:150px;"><option value="">— 未保存的状态 —</option></select>
+        <input type="text" id="instName" placeholder="状态名" style="flex:2; min-width:140px;">
+        <button type="button" id="instSaveAs" class="btn btn-primary">存为档案</button>
+        <button type="button" id="instDelete" class="btn btn-danger">删除</button>
+      </div>
+      <div class="hint" id="instHint">可保存多份「个人状态」（如自己 / 家人 / 戒烟假设）。选中档案后改动自动保存；「存为档案」把当前状态存成新档案。</div>
+      <div class="hint" style="font-size:11px;color:#0F6E56;">隐私：所有输入数据（年龄、血压、吸烟等健康信息）仅保存在你的浏览器本机，不上传、不联网。</div>
+    </div>
+    <div class="card">
+      <h2>快速开始 · 认识他们</h2>
+      <p class="src" style="margin-top:0;">序章的三位朋友（周平、秦远、林安）代表三种风险态度；下面四位则是更具体的生活切片，年龄、性别、习惯各异。点开任意一位，看看他的生活，再点「用他填表」——我们会根据他的生活，推测一份身体数据填到下面。</p>
+      <div id="exampleCards" style="display:flex;flex-direction:column;gap:10px;"></div>
+    </div>
+    <div class="card">
+      <h2>个人信息 <button type="button" id="clearAll" class="btn btn-sm" style="float:right;color:var(--danger);">清空</button></h2>
+      <div class="grid">
+        <div class="field"><label>年龄<span class="req">*</span></label><input type="number" id="age" min="0" max="100" placeholder="0–100"></div>
+        <div class="field"><label>性别<span class="req">*</span></label>
+          <div class="radios">
+            <label><input type="radio" name="sex" value="m">男</label>
+            <label><input type="radio" name="sex" value="f">女</label>
+          </div>
+        </div>
+        <div class="field"><label>BMI</label><input type="number" id="bmi" min="15" max="35" step="0.1" placeholder="15–35"></div>
+        <div class="field"><label>腰围（cm）</label><input type="number" id="waist" min="60" max="110" placeholder="男 70–110 / 女 60–100"></div>
+        <div class="field"><label>收缩压（mmHg）</label><input type="number" id="sbp" min="90" max="180" placeholder="90–180"></div>
+        <div class="field"><label>空腹血糖（mmol/L）</label><input type="number" id="glu" min="3.9" max="15" step="0.1" placeholder="3.9–15"></div>
+        <div class="field"><label>LDL-C（mmol/L）</label><input type="number" id="ldl" min="1" max="6" step="0.1" placeholder="1–6"></div>
+        <div class="field"><label>静息心率（次/分）</label><input type="number" id="hr" min="40" max="100" placeholder="40–100"></div>
+        <div class="field"><label>睡眠时长（小时）</label><input type="number" id="sleep" min="3" max="12" step="0.5" placeholder="3–12"></div>
+        <div class="field"><label>饮酒（克/周）</label><input type="number" id="alcohol" min="0" max="500" step="1" placeholder="0–500"></div>
+        <div class="field"><label>吸烟（支/天）</label><input type="number" id="smoke" min="0" max="40" step="1" placeholder="0–40"></div>
+      </div>
+      <div style="border-top:1px solid var(--line);margin:12px 0 0;padding-top:12px;">
+        <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr));">
+          <div class="field">
+            <label>体力活动（和同龄同性别比）</label>
+            <div class="radios" style="flex-direction:column;align-items:flex-start;gap:6px;">
+              <label><input type="radio" name="activity" value="low">明显偏少</label>
+              <label><input type="radio" name="activity" value="mid">大致相当</label>
+              <label><input type="radio" name="activity" value="high">明显偏多</label>
+              <label style="opacity:.6;"><input type="radio" name="activity" value="" checked>不填（按平均）</label>
+            </div>
+            <div class="hint">综合工作、家务、通勤、运动。中位数分位自评：超过周围一半人=偏多（CKB 二分 HR 0.78）。</div>
+          </div>
+          <div class="field">
+            <label>饮食（勾选你日常做到的项）</label>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <label><input type="checkbox" id="diet_v">每天吃蔬菜</label>
+              <label><input type="checkbox" id="diet_f">每天吃水果</label>
+              <label><input type="checkbox" id="diet_r">每周吃红肉 1–6 天</label>
+              <label><input type="checkbox" id="diet_l">每周吃豆类 ≥4 天</label>
+              <label><input type="checkbox" id="diet_fish">每周吃鱼 ≥1 天</label>
+            </div>
+            <div class="hint">CKB 5 项饮食评分（二分口径）：勾满 4–5 项=健康饮食（HR 0.89），勾 1–3 项=未达健康标准（HR 1.12），一项不勾=不调整。注意：勾了但没勾够 4 项，会被判为「不健康饮食」——这不是说勾了更糟，而是 CKB 只给了「达标/未达标」两档，没有中间档。</div>
+          </div>
+        </div>
+      </div>
+      <div class="hint">选填项不填则按人群平均处理（系数 1）；填写后体现你相对同龄平均的偏离——更健康得 &lt;1 的系数（曲线高于平均）、更高危得 &gt;1（曲线低于平均）。数值已限制在数据支持范围内；填写后各系数的来源与局限会在下方动态提示中逐条给出。</div>
+      <div style="border-top:1px solid var(--line);margin:14px 0 0;padding-top:12px;">
+        <div class="grid">
+          <div class="field">
+            <label>额外风险（微死亡/年，思想实验）</label>
+            <input type="number" id="extra" min="0" max="100000" step="1" value="0">
+            <div class="hint" id="extraRef">参照：你的年背景风险约 <b>—</b> 微死亡/年。</div>
+            <div class="hint">假设每年额外承担这么多死亡风险，看曲线如何变化。「风险换算」里记录的「事件」默认仅作对比；勾选下方「计入曲线」后才会叠加到这里。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>风险如何累积</h2>
+      <div style="margin-bottom:10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <div class="seg" id="modeSeg">
+          <button class="active" data-mode="year">年模式</button>
+          <button data-mode="month">月模式</button>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:13px; color:var(--mut);">查询未来</span>
+          <input type="number" id="queryN" min="1" max="120" step="1" placeholder="如 30" style="width:76px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px;">
+          <span id="queryUnit" style="font-size:13px; color:var(--mut);">年</span>
+          <span id="queryResult" style="font-size:13px; font-weight:600; color:var(--acc);">—</span>
+        </div>
+      </div>
+      <div class="nums" id="nums"></div>
+      <div id="chartWrap">
+        <canvas id="chart" width="880" height="400" role="img" aria-label="生存曲线图：显示当前状态下的存活率曲线与置信区间，悬停或拖动可查看具体数值"></canvas>
+        <canvas id="chartOverlay" width="880" height="400" aria-hidden="true"></canvas>
+        <div id="chartBubble" role="status" aria-live="polite"></div>
+      </div>
+      <div class="age-warn" id="ageWarn">⚠️ 演示参考：未成年人（&lt;18 岁）曲线基于保险人群生命表，婴儿死亡率（约 0.25‰）远低于一般人口（约 4.5‰），严重低估真实风险，仅用于演示，不代表真实情况。</div>
+      <p class="fig">图 1　生存曲线（实线＝点估计；蓝带＝置信区间 2.5%–97.5%；蓝线＝叠加额外风险后；指针悬停或按住拖动查看数值）</p>
+      <div class="hint" style="margin:6px 0 0;font-size:12px;color:var(--mut);">这条曲线描述的是「和你数据相同的 100 万人」的平均命运，不是你的命运——个体可能落在蓝带内任何位置，也可能落在带外。它不预测你的寿命。</div>
+      <div id="warnings"></div>
+      <div id="riskProfile"></div>
+      <div class="card" id="reportCard">
+        <h2>个人风险报告</h2>
+        <p class="src" style="margin-top:0;">把当前结果导出为一份自洽的报告：打印版固定六部分——报告头、输入档案（13 项）、核心结果、风险构成、事件叠加清单、方法与局限（浏览器打印对话框可另存为 PDF）；文本摘要为几行纯文本、可一键复制。报告只含你输入的数值与计算结果，<b>不含姓名等个人识别信息</b>，不构成医疗或保险建议。</p>
+        <div class="btn-row">
+          <button id="reportPrint" type="button" class="btn btn-primary">打印报告（可另存 PDF）</button>
+          <button id="reportCopy" type="button" class="btn">复制文本摘要</button>
+        </div>
+        <div class="hint" id="reportCopyMsg" style="margin-bottom:0;"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 第4章：价格 ============ -->
+  <section class="chapter" id="ch4">
+    <div class="ch-head"><span class="no">第4章</span><h2>价格——风险的另一把尺子</h2></div>
+    <div class="ch-lead">
+      <p>把 1 微死亡折算成人民币，是一种很老的经济学方法。先说清楚它不是什么：它不是说「一条命值多少钱」，而是说「社会愿意为减少 1 个微死亡支付多少钱」——一个换算率，只用于比较不同风险的大小。</p>
+      <p>中国的统计生命价值研究已积累 28 篇系统评价文献（那艺诺等，2025），其中 24 篇有明确调查年份、可做跨期折算，内嵌于本工具。24 篇的折算价从 ¥0.12 到 ¥9.75 不等——差别不在「命有贵贱」，而在方法：<b>市场行为（工资补偿）</b>捕捉真实支付行为、数值偏高；<b>个人意愿（问卷）</b>受假设偏差影响、跨度大。本工具折算风险构成时统一采用保守口径 ¥3.28（市场行为中较低的一篇，调查 1998 年，折算至 2025 年）。</p>
+    </div>
+    <div class="card">
+      <h2>微死亡经济化（折算成人民币）</h2>
+      <p class="src">选一篇具体研究，对比「1 微死亡」在当时与今日的价格。跨期折算用「调查年份」（数据发生年，非发表年份）：市场行为（工资补偿）按人均可支配收入、个人意愿（问卷）按 CPI（购买力），基准 2025 年。</p>
+      <div class="grid">
+        <div class="field"><label>标价口径</label><select id="vslType"></select></div>
+        <div class="field"><label>领域</label><select id="vslField"></select></div>
+        <div class="field"><label>研究（作者 · 年份）</label><select id="vslStudy"></select></div>
+      </div>
+      <div id="vslDetail" style="margin:12px 0;"></div>
+      <div class="note" style="font-size:12px;color:var(--mut);margin:10px 0;">各研究结果差异很大（1 微死亡约 ¥0.1 至 ¥10，差近百倍），原因不在「命有贵贱」，而在方法：<b>市场行为（工资补偿）</b>捕捉的是真实支付行为，数值普遍偏高；<b>个人意愿（问卷）</b>受假设偏差影响，跨度大；且调查年份、样本人群（职业 / 地区）、风险类型（交通 / 污染 / 健康）各不相同。若要单点参考，可取「市场行为」口径的较低值 ¥3.28（该口径仅 2 篇：¥3.28、¥9.75，跨度大，取低值偏保守）；问卷口径则看区间而非单值。</div>
+      <div class="nums" id="mmResult"></div>
+    </div>
+  </section>
+
+  <!-- ============ 第5章：微寿命 ============ -->
+  <section class="chapter" id="ch5">
+    <div class="ch-head"><span class="no">第5章</span><h2>微寿命——时间尺度上的风险</h2></div>
+    <div class="ch-lead">
+      <p>微死亡用「百万分之一」度量风险大小；微寿命（microlife）换一把尺子：半小时的预期寿命。斯皮格豪特的估算（Spiegelhalter, 2012；<b>英国人群口径</b>，只作量级参考）：每天吸烟 20 支约损失 10 个微寿命（5 小时）、肥胖约损失 3 个（1.5 小时）、男性相对女性每天约损失 4 个（2 小时） <a class="cite" href="#ref-32">[32]</a>。</p>
+      <p>「每天 -5 小时」并不比「每年多出 1/1000 的死亡概率」更真实——只是更直观。这正是尺子存在的意义：<b>用不同单位丈量同一件事，才能看见它的真实大小</b>。微寿命只做展示，不进入本工具任何计算。</p>
+    </div>
+    <div class="card">
+      <h2>每天，你「花」了多少小时？</h2>
+      <div class="microbars">
+        <div class="mb"><span class="lab">吸烟 20 支/天</span><span class="bar" style="--w:100%;"><span class="fill"></span></span><span class="val">−5.0 小时/天（10 微寿命）</span></div>
+        <div class="mb"><span class="lab">肥胖（BMI 30–35）</span><span class="bar" style="--w:30%;"><span class="fill"></span></span><span class="val">−1.5 小时/天（3 微寿命）</span></div>
+        <div class="mb"><span class="lab">男性（相对女性）</span><span class="bar" style="--w:40%;"><span class="fill"></span></span><span class="val">−2.0 小时/天（4 微寿命）</span></div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <h2 style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">你的寿命收支账
+          <span style="font-weight:normal;font-size:12.5px;color:var(--mut);">
+            <label style="margin-right:6px;">单位</label>
+            <select id="lspanUnit" style="width:auto;display:inline-block;padding:4px 6px;">
+              <option value="min" selected>分钟/天</option>
+              <option value="hour">小时/天</option>
+              <option value="year">年（终生差值）</option>
+            </select>
+          </span>
+        </h2>
+        <p class="hint" id="lspanNote" style="margin-top:0;">尚未填写个人状态。填入年龄、性别后，这里会列出「你的状态」相对「同龄同性别平均」的寿命收支（逐因素 = 单独把这一项拨回平均的敏感度）。</p>
+        <div id="lspanLedger"></div>
+      </div>
+      <p class="src" style="margin-bottom:0;">口径：1 微寿命＝30 分钟预期寿命（Spiegelhalter D. Using speed of ageing and "microlives" to communicate the effects of lifetime habits and environment. BMJ, 2012, 345: e8223）。吸烟项按「每天 20 支、持续终生」的剂量反应估计；肥胖项按 BMI 30–35 区间估计。均为英国人群量级参考，不用于本工具存活率计算。</p>
+    </div>
+    <div class="card">
+      <h2>三位朋友，现在看清楚了</h2>
+      <p style="margin-top:0;">周平知道了「平均」长什么样：40 岁男性、全指标贴着均值的他，背景风险约 1015 微死亡/年——不高，但也绝不为零。秦远给每次攀岩贴上价签：3 微死亡/次，想清楚、再去爬。林安列了一张清单：家里装上烟雾报警器、孩子学会游泳、开车不沾酒——每一条都对应一个「从统计上数得出来」的死亡数。</p>
+      <p style="margin-bottom:0;">把风险摆到桌面上，不是为了害怕，而是为了<b>把害怕用在值得的地方</b>。《健康中国行动（2019–2030 年）》给出的正是这张清单：控烟限酒、合理膳食、科学运动、心理平衡，注意道路交通安全与溺水防护。</p>
+    </div>
+  </section>
+
+  <!-- ============ 附录：参考文献 ============ -->
+  <section class="chapter" id="refs">
+    <div class="ch-head"><span class="no">附录</span><h2>参考文献</h2></div>
+    <div class="card" id="refCard">
+      <h2>参考文献（GB/T 7714-2015）</h2>
+      <p class="src" style="margin-top:0;">以下为全书主要外部资料的参考文献表，著录遵循 GB/T 7714-2015，检索日期均为 2026-11-10，按章分组。事件级九项出版级著录见<a href="#ch1">第1章事件列表</a>——点击任意条目即可展开。</p>
+      <div id="refList"></div>
+    </div>
+  </section>
+
+  <!-- ============ 尾声 ============ -->
+  <section class="chapter" id="epilogue">
+    <div class="ch-head"><span class="no">尾声</span><h2>口径、信度与编校信息</h2></div>
+    <div class="card">
+      <h3>口径红线</h3>
+      <p class="src" style="margin-top:0;">①<b>人数口径</b>：微死亡一律按「死亡人数 ÷ 暴露人数」计算；「百万吨死亡率」等产量口径不采用。②<b>中外分列</b>：英美数据（如斯皮格豪特锚点、微寿命）仅作直觉参考，与中国数据<b>不混用</b>，均就地标注口径。③同一风险存在多个官方口径时（如道路交通），并列展示并说明差异，不强行合并。</p>
+      <h3>信度分级</h3>
+      <p class="src">A 官方统计（政府机构直接公布）；B 行业协会 / 专业机构；C 学术研究 / 数据库；D 自媒体·转引（仅量级参考，按区间显示、不升档）。详见<a href="#ch1">第1章</a>。</p>
+      <h3>编校信息</h3>
+      <p class="src" style="margin-top:0;">本版由作者完成多轮事实核查与校对，并参考公开数据来源。</p>
+      <details>
+        <summary>编校信息（版本 1.0.0 · 作者自校）</summary>
+        <p class="src">版本 1.0.0（正式版）。本版经过作者多轮事实核查与校对，参考公开数据来源，并采纳多轮独立评审意见。修订建议请附证据指出，按「原文—改法—依据」三栏记录。本工具不预测寿命：寿命收支等所有时间维度数字都是「当前状态」相对「同龄同性别平均」的差值，不是对个人寿命的预言。</p>
+      </details>
+      <p class="src">© 2026 Dasein0721 · 本作品采用 CC BY-NC 4.0（署名—非商业性使用）许可：转发、改编并公开发表须保留作者署名，商业用途须事先取得许可，个人学习与研究自由。协议见 https://creativecommons.org/licenses/by-nc/4.0/。</p>
+      <h3>求助引导</h3>
+      <p class="src" style="margin-bottom:0;">如果你或身边的人正经历难以承受的痛苦：请拨打全国统一心理援助热线 <b>12356</b>（国家卫生健康委，2025 年起全国统一号码），或前往当地精神卫生医疗机构。寻求帮助不是软弱。</p>
+    </div>
+  </section>
+
+  <div class="foot">
+    <b>方法与局限</b>：
+    <details style="margin:6px 0 0;">
+      <summary>方法与局限（锚定口径 · 分簇公式 · 比例风险假设）</summary>
+      <ol id="footNote" style="margin:8px 0 0;padding-left:18px;">
+        <li>各状态系数已锚定到「中国成人人群平均」为 1（具体参照值 μ 见第2章）：故平均人得到接近生命表的曲线，更健康者系数 &lt;1（曲线高于平均）、更高危者 &gt;1（曲线低于平均）。血压分年龄三档（18–44 / 45–59 / 60+），其余系数用全成人均值（未分年龄，已标注局限）。</li>
+        <li>综合风险 = 生活方式簇 × 代谢簇 × 心率 × 睡眠，每变量只乘一次：<b>生活方式簇</b>（吸烟/饮酒/运动/饮食）因素相对独立，且实测联合效应高于单因素连乘（烟酒协同），故线性放大 k1=1.12；<b>代谢簇</b>（体型/血压/血糖/血脂）是同一个「代谢综合征」的不同投影，独立相乘会重复计数、高估约 46%，故用饱和函数封顶到实测上界（CAP=1.92）；<b>心率、睡眠</b>不在任何簇的锚内（Li 2016 代谢 5 成分、CKB 生活方式 5 因素均不含），作为独立因素直接乘、不缩放（与代谢/生活的弱重叠未校正）。「一个线性、一个饱和」的依据正是两簇内部因素的相关性强弱差异。校准参数取值见第2章。</li>
+        <li>综合系数假设各状态因素的风险比在所有年龄恒定（比例风险假设）；已知例外：血压效应在 80 岁后约减半、腰围在 ≥80 岁存在肥胖悖论，本工具未做年龄分层修正，高龄段结果偏保守/偏乐观视方向而定，仅供参考。</li>
+      </ol>
+    </details>
+    <p style="margin:6px 0 0;font-size:13px;">本工具仅供理解风险量级，不构成任何医疗或预测结论。</p>
+    <p class="src" style="margin:6px 0 0;">数据来源与局限：生命表（CL4 2025，保险人群经验死亡率略低于一般人口）；9 个状态系数来源在「填写后」的动态提示中逐条给出；综合风险校准参数（k1 / CAP / τ）取值见第2章；微死亡表信度分级与溯源见第1章与第2章；VSL 24 篇折算口径见第4章与第2章。</p>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ================= 数据：生命表 CL4（‰，每千人年死亡率） ================= */
+const MALE = [0.252,0.206,0.167,0.136,0.111,0.094,0.085,0.082,0.087,0.097,0.112,0.13,0.149,0.169,0.187,0.203,0.216,0.228,0.239,0.25,0.262,0.276,0.293,0.312,0.333,0.355,0.378,0.401,0.425,0.448,0.473,0.499,0.529,0.563,0.604,0.652,0.709,0.773,0.846,0.927,1.015,1.11,1.215,1.329,1.454,1.591,1.74,1.903,2.079,2.272,2.481,2.711,2.964,3.245,3.557,3.905,4.29,4.715,5.18,5.686,6.233,6.822,7.454,8.135,8.872,9.675,10.561,11.55,12.671,13.959,15.454,17.202,19.255,21.665,24.486,27.77,31.568,35.927,40.89,46.496,52.78,59.71,67.244,75.608,84.861,95.062,106.26,118.496,131.8,146.186,161.651,178.169,195.691,214.143,233.424,253.408,273.947,294.871,315.999,337.14,358.103,378.702,398.764,418.135,436.681,1000.0];
+const FEMALE = [0.222,0.164,0.122,0.093,0.075,0.064,0.06,0.061,0.065,0.071,0.079,0.088,0.097,0.104,0.11,0.115,0.118,0.121,0.124,0.127,0.132,0.137,0.144,0.151,0.157,0.164,0.17,0.175,0.181,0.187,0.194,0.202,0.212,0.223,0.237,0.252,0.27,0.29,0.314,0.343,0.376,0.413,0.456,0.504,0.558,0.618,0.685,0.758,0.838,0.923,1.015,1.112,1.216,1.328,1.45,1.585,1.737,1.911,2.11,2.336,2.592,2.879,3.201,3.561,3.964,4.42,4.941,5.546,6.258,7.107,8.126,9.353,10.829,12.597,14.7,17.181,20.083,23.448,27.314,31.722,36.709,42.313,48.57,55.515,63.267,72.418,82.707,94.222,107.039,121.222,136.81,153.818,172.226,191.977,212.97,235.058,258.052,281.724,305.814,330.042,354.12,377.767,400.72,422.749,443.661,1000.0];
+
+/* ================= 数据：微死亡表（每 1 单位 = 微死亡） ================= */
+const EVENTS = [
+  {cat:"极限运动", items:[
+    ["登珠峰",37932,"次"],["喜马拉雅登山",12000,"次"],["马特洪峰攀登",2840,"次"],
+    ["BASE 跳伞",430,"次"],["滑翔伞",74,"次"],["跳伞",8,"次"],["悬挂滑翔",8,"次"],
+    ["马拉松",7,"次"],["攀岩",3,"次"],["滑雪",0.7,"天"],["骑马",0.5,"次"],
+    ["水肺潜水(会员)",5,"次"],["水肺潜水(非会员)",10,"次"]
+  ]},
+  {cat:"医疗", items:[
+    ["冠状动脉搭桥术",12000,"次"],["常规全身手术",5000,"次"],["剖腹产",170,"次"],
+    ["顺产",120,"次"],["住院",75,"夜"],["全身麻醉",10,"次"]
+  ]},
+  {cat:"交通（中国）", items:[
+    ["驾驶汽车（高速公路）",0.033,"车公里",15000],["骑摩托车",0.66,"车公里",3000]
+  ]},
+  {cat:"长期高危职业/暴露（微死亡/年）", items:[
+    ["远洋渔民",2140,"年"],["缉毒警察",4750,"年"],["金属矿山井下工",750,"年"],
+    ["高空外墙清洗",600,"年"],["消防员",165,"年"],["化工一线操作工",135,"年"],
+    ["二手烟暴露",135,"年"],["长途货运司机",110,"年"],["建筑高空作业",90,"年"],
+    ["电焊/气割工",80,"年"],["外卖骑手",65,"年"]
+  ]},
+  {cat:"意外伤害与疾病（中国，微死亡/年）", items:[
+    ["溺水（1–4 岁）",36.9,"年"],["溺水（5–14 岁）",30.6,"年"],["溺水（全人群）",35.3,"年"],
+    ["跌倒（≥65 岁）",638,"年"],["意外跌落（全人群）",125.3,"年"],
+    ["步行（行人-机动车事故）",42.0,"年"],["驾乘机动车（车-车碰撞）",14.1,"年"],
+    ["骑电动自行车",29,"辆·年"],
+    ["道路交通事故（公安口径）",42.6,"年"],["道路交通事故（监测口径）",105.9,"年"],["道路交通事故（WHO 口径）",174,"年"],
+    ["酒驾（含醉驾，全人群）",1.7,"年"],["酒驾（含醉驾，驾驶人）",6.2,"驾驶人·年"],
+    ["意外中毒（全人群）",18.2,"年"],["一氧化碳中毒",8.65,"年"],
+    ["火灾（监测口径）",4.2,"年"],["火灾（消防救援局口径）",1.4,"年"],
+    ["意外的机械性窒息",4.5,"年"],
+    ["婴儿窒息（城市，每10万婴儿）",55.2,"10万婴儿·年"],["婴儿窒息（农村，每10万婴儿）",79.9,"10万婴儿·年"],
+    ["触电",3.5,"年"],["自然灾害（全类型）",4.9,"年"],["狂犬病",0.9,"年"],["高空坠物砸死",4.1,"年"],
+    ["流感重症（超额死亡）",65,"年"],["心源性猝死",386,"年"]
+  ]}
+];
+
+/* ================= 微死亡数据信度分级 ================= */
+// A=官方统计（政府机构直接公布）  B=行业协会/专业机构  C=学术研究/数据库  D=自媒体·转引（仅量级参考）
+// 详细来源与溯源结论见项目文档《微死亡数据汇编》"信度分级"节。
+const REL = {
+  "登珠峰":"C","喜马拉雅登山":"C","马特洪峰攀登":"C","BASE 跳伞":"C","滑翔伞":"C",
+  "跳伞":"B","悬挂滑翔":"C","马拉松":"C","攀岩":"C","滑雪":"D","骑马":"D",
+  "水肺潜水(会员)":"B","水肺潜水(非会员)":"B",
+  "冠状动脉搭桥术":"C","常规全身手术":"C","剖腹产":"C","顺产":"C","住院":"C","全身麻醉":"C",
+  "驾驶汽车（高速公路）":"B","骑摩托车":"B",
+  "远洋渔民":"B","缉毒警察":"D","金属矿山井下工":"D","高空外墙清洗":"D","消防员":"D",
+  "化工一线操作工":"D","二手烟暴露":"A","长途货运司机":"D","建筑高空作业":"D","电焊/气割工":"D","外卖骑手":"D",
+  "溺水（1–4 岁）":"A","溺水（5–14 岁）":"A","溺水（全人群）":"A",
+  "跌倒（≥65 岁）":"A","意外跌落（全人群）":"A",
+  "步行（行人-机动车事故）":"A","驾乘机动车（车-车碰撞）":"A",
+  "骑电动自行车":"B",
+  "道路交通事故（公安口径）":"A","道路交通事故（监测口径）":"A","道路交通事故（WHO 口径）":"B",
+  "酒驾（含醉驾，全人群）":"A","酒驾（含醉驾，驾驶人）":"A",
+  "意外中毒（全人群）":"A","一氧化碳中毒":"C",
+  "火灾（监测口径）":"A","火灾（消防救援局口径）":"A",
+  "意外的机械性窒息":"A",
+  "婴儿窒息（城市，每10万婴儿）":"A","婴儿窒息（农村，每10万婴儿）":"A",
+  "触电":"A","自然灾害（全类型）":"A","狂犬病":"A","高空坠物砸死":"A",
+  "流感重症（超额死亡）":"A","心源性猝死":"C",
+};
+const REL_TXT = {A:"官方统计", B:"行业协会/专业机构", C:"学术研究/数据库", D:"自媒体·转引（仅量级参考）"};
+function relLevel(name){ return REL[name] || "D"; }
+
+/* ================= 微死亡事件具体来源（就地溯源，供预览区显示） ================= */
+// 每条 = 来源机构/文献 + 年份（+ 口径说明）。与《微死亡数据汇编.md》「信度分级」节一致。
+const SRC = {
+  "登珠峰":"喜马拉雅数据库 1922–2012",
+  "喜马拉雅登山":"登山数据库（长期统计）",
+  "马特洪峰攀登":"1981–2011 攀登统计",
+  "BASE 跳伞":"挪威 Kjerag 1995–2005",
+  "滑翔伞":"土耳其 2004–2011",
+  "跳伞":"USPA/BPA 美国·英国跳伞协会，2000–2016",
+  "悬挂滑翔":"Canbek 2015 / 协会统计",
+  "马拉松":"美国国家医学图书馆研究",
+  "攀岩":"Canbek 2015",
+  "滑雪":"Wikipedia 转引（原始出处待溯源）",
+  "骑马":"Wikipedia 转引（原始出处待溯源）",
+  "水肺潜水(会员)":"BSAC 英国潜水协会",
+  "水肺潜水(非会员)":"BSAC 英国潜水协会",
+  "冠状动脉搭桥术":"医学文献死亡率数据（1.2%）",
+  "常规全身手术":"医学文献死亡率数据（0.5%）",
+  "剖腹产":"医学文献死亡率数据",
+  "顺产":"医学文献死亡率数据",
+  "住院":"医学文献死亡率数据",
+  "全身麻醉":"医学文献死亡率数据（1/10 万）",
+  "驾驶汽车（高速公路）":"世界银行（高速公路 3.3 人/亿车公里）",
+  "骑摩托车":"公安部「每公里致命率为汽车 20 倍」（推算值，非直接公布）",
+  "远洋渔民":"中国渔业互保协会",
+  "缉毒警察":"涉密，官方不公开（自媒体推算，仅量级参考）",
+  "金属矿山井下工":"自媒体《最危险 100 职业》推算（仅量级参考）",
+  "高空外墙清洗":"自媒体《最危险 100 职业》推算（仅量级参考）",
+  "消防员":"自媒体推算；应急管理部有绝对数佐证（2018–2022 转制 4 年 139 人牺牲）",
+  "化工一线操作工":"自媒体《最危险 100 职业》推算（仅量级参考）",
+  "二手烟暴露":"国家卫健委《中国吸烟危害健康报告 2020》（全暴露平均）",
+  "长途货运司机":"自媒体推算，来源分歧大（量级不确定，仅参考）",
+  "建筑高空作业":"自媒体推算；住建部有绝对数佐证（2023 年 583 起、635 亡）",
+  "电焊/气割工":"自媒体《最危险 100 职业》推算（仅量级参考）",
+  "外卖骑手":"自媒体推算；有学术研究佐证事故高发（Li 2020 / Zheng 2019）",
+  "溺水（1–4 岁）":"国家心血管病中心/中国疾控《中国死因监测数据集 2021》",
+  "溺水（5–14 岁）":"国家心血管病中心/中国疾控《中国死因监测数据集 2021》",
+  "溺水（全人群）":"中国死因监测历年数据 + WHO 参照",
+  "跌倒（≥65 岁）":"全国疾病监测系统死因监测（《中国公共卫生》转引，CCTV 2022-03-01）",
+  "意外跌落（全人群）":"《中国卫生健康统计年鉴 2023》表 11-1-1/11-3-1",
+  "步行（行人-机动车事故）":"《中国卫生健康统计年鉴 2023》「行人」分项",
+  "驾乘机动车（车-车碰撞）":"《中国卫生健康统计年鉴 2023》分项",
+  "骑电动自行车":"邓晓等中国疾控研究（2019）+ 公安部/工信部保有量",
+  "道路交通事故（公安口径）":"国家统计局《中国统计年鉴 2024》（2023 年公安口径）",
+  "道路交通事故（监测口径）":"《中国卫生健康统计年鉴 2023》（2021 年死因监测口径）",
+  "道路交通事故（WHO 口径）":"WHO《2023 年全球道路安全状况报告》（含漏报校正）",
+  "酒驾（含醉驾，全人群）":"公安部交管局（新华社 2018-06-11 / 01-15）",
+  "酒驾（含醉驾，驾驶人）":"公安部交管局（新华社 2018-06-11 / 01-15）",
+  "意外中毒（全人群）":"《中国卫生健康统计年鉴 2023》分项；WHO SDG 3.9.3 佐证",
+  "一氧化碳中毒":"GBD 2021/2019 建模（中国疾控科普页、卫健委发布会佐证）",
+  "火灾（监测口径）":"《中国卫生健康统计年鉴 2023》分项",
+  "火灾（消防救援局口径）":"国家消防救援局 2024 年全国火灾数据",
+  "意外的机械性窒息":"《中国卫生健康统计年鉴 2023》分项",
+  "婴儿窒息（城市，每10万婴儿）":"《中国卫生健康统计年鉴 2023》表 11-2-1",
+  "婴儿窒息（农村，每10万婴儿）":"《中国卫生健康统计年鉴 2023》表 11-4-1",
+  "触电":"《中国卫生健康统计年鉴 2023》「触电」分项",
+  "自然灾害（全类型）":"应急管理部《2023 年全国自然灾害基本情况》（2024-01-20）",
+  "狂犬病":"国家卫健委《2023 年全国法定传染病疫情概况》",
+  "高空坠物砸死":"《中国卫生健康统计年鉴 2023》「砸死」分项",
+  "流感重症（超额死亡）":"中国疾控官方综述（2026-06-22）；Li 等《中国公共卫生》",
+  "心源性猝死":"国家心血管病中心（阜外华伟团队，JACC 系列）",
+};
+function eventSrc(name){ return SRC[name] || ""; }
+
+/* ============ 二期：出版级著录（9 字段）与参考文献系统 ============ */
+// 9 字段固定顺序：名称 / 数值或区间 / 单位口径 / 换算计算式 / 来源机构与文献名 / 数据年份 / 样本与口径 / 局限 / 信度+审定状态
+// 审定状态：本版完成作者自校（事实与数据溯源 + 编辑加工），并采纳多轮独立评审意见。
+const CATALOG = [
+ {n:"登珠峰",v:"37932",u:"微死亡/次",c:"登顶死亡比约 3.8%（1922–2012 合计，来源直接报告值）",s:"喜马拉雅数据库（The Himalayan Database）",y:"1922–2012",p:"有登记攀登记录的登顶者死亡统计",l:"仅覆盖登记在册攀登；商业化攀登与救援改善影响历史可比性",r:"C"},
+ {n:"喜马拉雅登山",v:"12000",u:"微死亡/次",c:"来源直接报告值（约 1.2% 死亡比）",s:"登山数据库（长期统计）",y:"长期",p:"高海拔登山汇总统计",l:"口径含各类高海拔登山，范围定义宽",r:"C"},
+ {n:"马特洪峰攀登",v:"2840",u:"微死亡/次",c:"来源直接报告值",s:"1981–2011 攀登统计",y:"1981–2011",p:"马特洪峰登顶者死亡统计",l:"单峰特例，不代表一般登山",r:"C"},
+ {n:"BASE 跳伞",v:"430",u:"微死亡/次",c:"来源直接报告值（每次跳伞死亡概率）",s:"挪威 Kjerag 场地统计",y:"1995–2005",p:"特定场地长时段事故统计",l:"场地与年代单一",r:"C"},
+ {n:"滑翔伞",v:"74",u:"微死亡/次",c:"来源直接报告值",s:"土耳其滑翔伞统计",y:"2004–2011",p:"土耳其地区事故统计",l:"地区与年代单一",r:"C"},
+ {n:"跳伞",v:"8",u:"微死亡/次",c:"来源直接报告值",s:"USPA/BPA 美国·英国跳伞协会",y:"2000–2016",p:"美英协会成员跳伞统计",l:"协会成员为主；商业与培训跳伞占比影响水平",r:"B"},
+ {n:"悬挂滑翔",v:"8",u:"微死亡/次",c:"来源直接报告值",s:"USPA·BPA 协会 / 研究",y:"未记录",p:"协会统计",l:"无独立年份来源（Canbek 2015 属攀岩条）",r:"C"},
+ {n:"马拉松",v:"7",u:"微死亡/次",c:"来源直接报告值",s:"美国国家医学图书馆研究",y:"未记录",p:"马拉松参赛者死亡统计",l:"参赛者经健康筛选，可能低估一般人群风险",r:"C"},
+ {n:"攀岩",v:"3",u:"微死亡/次",c:"来源直接报告值",s:"Canbek 2015",y:"2015",p:"攀岩运动事故研究",l:"定义与场地覆盖不一",r:"C"},
+ {n:"滑雪",v:"0.7",u:"微死亡/天",c:"来源直接报告值（按天计）",s:"Wikipedia 转引",y:"未记录",p:"—",l:"原始出处待溯源，仅量级参考",r:"D"},
+ {n:"骑马",v:"0.5",u:"微死亡/次",c:"来源直接报告值",s:"Wikipedia 转引",y:"未记录",p:"—",l:"原始出处待溯源，仅量级参考",r:"D"},
+ {n:"水肺潜水(会员)",v:"5",u:"微死亡/次",c:"来源直接报告值",s:"BSAC 英国潜水协会",y:"未记录",p:"会员潜水统计",l:"会员经验结构与一般人群不同",r:"B"},
+ {n:"水肺潜水(非会员)",v:"10",u:"微死亡/次",c:"来源直接报告值",s:"BSAC 英国潜水协会",y:"未记录",p:"非会员潜水统计",l:"同上",r:"B"},
+ {n:"冠状动脉搭桥术",v:"12000",u:"微死亡/次",c:"死亡率 1.2% × 1e6",s:"医学文献死亡率数据",y:"未记录",p:"择期手术死亡率汇总",l:"医院与病情构成差异大",r:"C"},
+ {n:"常规全身手术",v:"5000",u:"微死亡/次",c:"死亡率 0.5% × 1e6",s:"医学文献死亡率数据",y:"未记录",p:"常规全身手术死亡率汇总",l:"「常规」定义宽",r:"C"},
+ {n:"剖腹产",v:"170",u:"微死亡/次",c:"死亡率 0.017% × 1e6",s:"医学文献死亡率数据",y:"未记录",p:"剖腹产产妇死亡率",l:"未区分紧急/择期",r:"C"},
+ {n:"顺产",v:"120",u:"微死亡/次",c:"死亡率 0.012% × 1e6",s:"医学文献死亡率数据",y:"未记录",p:"阴道分娩产妇死亡率",l:"不同年代与地区差异大",r:"C"},
+ {n:"住院",v:"75",u:"微死亡/夜",c:"来源直接报告值（每住院夜）",s:"医学文献死亡率数据",y:"未记录",p:"住院患者死亡风险折算",l:"病情构成极大影响数值",r:"C"},
+ {n:"全身麻醉",v:"10",u:"微死亡/次",c:"死亡率 1/10 万 × 1e6",s:"医学文献死亡率数据",y:"未记录",p:"麻醉相关死亡率",l:"现代麻醉安全水平随时间改善",r:"C"},
+ {n:"驾驶汽车（高速公路）",v:"0.033",u:"微死亡/车公里",c:"3.3 人/亿车公里 → 0.033 微死亡/车公里",s:"世界银行（高速公路 3.3 人/亿车公里）",y:"未记录",p:"高速公路车公里死亡率",l:"比西方高近 5 倍；中国口径",r:"B"},
+ {n:"骑摩托车",v:"0.66",u:"微死亡/车公里",c:"0.033 × 20（按「每公里致命率为汽车 20 倍」推算）",s:"公安部/交警（摩托车每公里致命率为汽车 20 倍）",y:"未记录",p:"推算值",l:"推算值，非直接公布",r:"B"},
+ {n:"远洋渔民",v:"2140",u:"微死亡/年",c:"来源直接报告值",s:"中国渔业互保协会",y:"近年",p:"远洋渔业从业者统计",l:"年份口径为「近年」",r:"B"},
+ {n:"缉毒警察",v:"4750（4500–5000）",u:"微死亡/年",c:"自媒体推算值（无官方换算式）",s:"涉密，官方不公开（自媒体推算，仅量级参考）",y:"未记录",p:"—",l:"官方不公布「特定职业每 10 万人死亡率」，仅量级参考，误差可达数倍",r:"D"},
+ {n:"金属矿山井下工",v:"750（600–900）",u:"微死亡/年",c:"自媒体推算值（无官方换算式）",s:"自媒体《最危险 100 职业》推算",y:"未记录",p:"—",l:"仅量级参考",r:"D"},
+ {n:"高空外墙清洗",v:"600（500–700）",u:"微死亡/年",c:"自媒体推算值（无官方换算式）",s:"自媒体《最危险 100 职业》推算",y:"未记录",p:"—",l:"仅量级参考",r:"D"},
+ {n:"消防员",v:"165（150–180）",u:"微死亡/年",c:"自媒体推算值（无官方换算式）",s:"自媒体推算；应急管理部绝对数佐证（2018–2022 转制 4 年 139 人牺牲）",y:"未记录",p:"—",l:"仅量级参考",r:"D"},
+ {n:"化工一线操作工",v:"135（120–150）",u:"微死亡/年",c:"自媒体推算值（无官方换算式）",s:"自媒体《最危险 100 职业》推算",y:"未记录",p:"—",l:"仅量级参考",r:"D"},
+ {n:"二手烟暴露",v:"135",u:"微死亡/年",c:"来源直接报告值（全暴露平均）",s:"国家卫健委《中国吸烟危害健康报告 2020》",y:"2020",p:"二手烟暴露归因死亡折算",l:"全暴露平均口径",r:"A"},
+ {n:"长途货运司机",v:"≈110",u:"微死亡/年",c:"自媒体推算值（无官方换算式）",s:"自媒体推算，来源分歧大（量级不确定，仅参考）",y:"未记录",p:"—",l:"来源分歧 10–50 倍（10–12/10万 至 500/10万），仅量级参考",r:"D"},
+ {n:"建筑高空作业",v:"90（80–100）",u:"微死亡/年",c:"自媒体推算值（无官方换算式）",s:"自媒体推算；住建部绝对数佐证（2023 年 583 起、635 亡）",y:"未记录",p:"—",l:"仅量级参考",r:"D"},
+ {n:"电焊/气割工",v:"80（70–90）",u:"微死亡/年",c:"自媒体推算值（无官方换算式）",s:"自媒体《最危险 100 职业》推算",y:"未记录",p:"—",l:"仅量级参考",r:"D"},
+ {n:"外卖骑手",v:"65（60–70）",u:"微死亡/年",c:"自媒体推算值（无官方换算式）",s:"自媒体推算；学术研究佐证事故高发（Li 2020 / Zheng 2019）",y:"未记录",p:"—",l:"仅量级参考",r:"D"},
+ {n:"溺水（1–4 岁）",v:"36.9",u:"微死亡/年",c:"3.69/10 万 ×10 = 36.9",s:"国家心血管病中心/中国疾控《中国死因监测数据集 2021》（人民日报 2025-07-18 转引）",y:"2021",p:"605 个死因监测点约 3 亿人口；ICD W65–W74 粗率",l:"粗率未标化；占该年龄组伤害死亡 34.24%",r:"A"},
+ {n:"溺水（5–14 岁）",v:"30.6",u:"微死亡/年",c:"3.06/10 万 ×10 = 30.6",s:"国家心血管病中心/中国疾控《中国死因监测数据集 2021》",y:"2021",p:"同上（5–14 岁组）",l:"占该年龄组伤害死亡 37.62%",r:"A"},
+ {n:"溺水（全人群）",v:"35.3",u:"微死亡/年",c:"3.53/10 万 ×10 = 35.3",s:"中国死因监测历年数据 + WHO 参照",y:"2010–2021",p:"全国死因监测，粗死亡率",l:"监测点估计；城乡差异（年鉴 2021 城市 2.03/10 万 vs 农村 2.60/10 万）未在单一数值中体现",r:"A"},
+ {n:"跌倒（≥65 岁）",v:"638",u:"微死亡/年",c:"63.83/10 万 ×10 = 638",s:"全国疾病监测系统死因监测（《中国公共卫生》转引；CCTV 2022-03-01）",y:"2018",p:"≥65 岁组伤害死亡统计",l:"转引复核；未细分 75+/85+；占该组伤害死亡 39.72%",r:"A"},
+ {n:"意外跌落（全人群）",v:"125.3",u:"微死亡/年",c:"(12.12×91425+13.27×49835)/141260 = 12.53/10 万 ×10 = 125.3",s:"《中国卫生健康统计年鉴 2023》表 11-1-1/11-3-1",y:"2021",p:"城市/农村加权；城市 80–84 岁 650.12/10 万、85+ 1795.95/10 万",l:"全人群均值：老年段风险远高于此",r:"A"},
+ {n:"步行（行人-机动车事故）",v:"42.0",u:"微死亡/年",c:"(3.82×91425+4.89×49835)/141260 = 4.20/10 万 ×10 = 42.0",s:"《中国卫生健康统计年鉴 2023》「行人」分项",y:"2021",p:"行人与机动车事故死亡，全人群分母",l:"分母为总人口而非步行出行量，低估步行者个体风险",r:"A"},
+ {n:"驾乘机动车（车-车碰撞）",v:"14.1",u:"微死亡/年",c:"(1.21×91425+1.79×49835)/141260 = 1.41/10 万 ×10 = 14.1",s:"《中国卫生健康统计年鉴 2023》分项",y:"2021",p:"车-车碰撞死亡，全人群分母",l:"含乘客；全人群分母低估驾乘者个体风险",r:"A"},
+ {n:"骑电动自行车",v:"29（按 2024 保有量计 24.7）",u:"微死亡/辆·年",c:"8639 人（2019 死亡）÷ 约 3 亿辆 ×1e6 = 29",s:"邓晓等中国疾控研究（2019）+ 公安部/工信部保有量",y:"2019（保有量 2024）",p:"电动自行车死亡数与保有量比值",l:"「辆·年」口径非人公里；按 2024 保有量 3.5 亿辆计为 24.7",r:"B"},
+ {n:"道路交通事故（公安口径）",v:"42.6",u:"微死亡/年",c:"6 万余人（2023）÷ 14.0967 亿 ×1e6 ≈ 42.6",s:"国家统计局《中国统计年鉴 2024》（2023 年公安口径）",y:"2023",p:"公安交管统计",l:"与监测口径、WHO 口径差异见三条并列说明",r:"A"},
+ {n:"道路交通事故（监测口径）",v:"105.9",u:"微死亡/年",c:"(9.37×91425+12.82×49835)/141260 = 10.59/10 万 ×10 = 105.9",s:"《中国卫生健康统计年鉴 2023》（死因监测）",y:"2021",p:"死因监测口径（城乡加权）",l:"三口径并列展示，不合并",r:"A"},
+ {n:"道路交通事故（WHO 口径）",v:"174",u:"微死亡/年",c:"17.4/10 万 ×10 = 174",s:"WHO《2023 年全球道路安全状况报告》",y:"2021",p:"WHO 估算（含漏报校正）",l:"估算口径，与公安/监测口径不可直接比较",r:"B"},
+ {n:"酒驾（含醉驾，全人群）",v:"1.7",u:"微死亡/年",c:"2378 人（年均）÷ 13.9 亿 ×1e6 ≈ 1.7",s:"公安部交管局（新华社 2018-06-11 / 01-15）",y:"2011–2017 年均",p:"入刑后 6 年年均死亡 2378 人，全人群分母",l:"全人群分母：非驾驶人也承受此风险",r:"A"},
+ {n:"酒驾（含醉驾，驾驶人）",v:"6.2",u:"微死亡/驾驶人·年",c:"2378 人 ÷ 3.85 亿驾驶人 ×1e6 ≈ 6.2",s:"公安部交管局（新华社 2018-06-11 / 01-15）",y:"2011–2017 年均",p:"驾驶人分母 3.85 亿（2017 底）",l:"含被撞无辜者，驾驶人自身风险被高估",r:"A"},
+ {n:"意外中毒（全人群）",v:"18.2",u:"微死亡/年",c:"(1.58×91425+2.25×49835)/141260 = 1.82/10 万 ×10 = 18.2",s:"《中国卫生健康统计年鉴 2023》分项；WHO SDG 3.9.3 佐证（14.7）",y:"2021",p:"意外中毒分项（城乡加权）",l:"儿童中毒细分不可溯源（Safe Kids 转引），并入本条说明",r:"A"},
+ {n:"一氧化碳中毒",v:"8.0–9.3（表中按中值 8.65 计入）",u:"微死亡/年",c:"GBD2021 标化 0.8/10 万（死亡 13289 人）→ 8.0；GBD2019 0.93/10 万（95%UI 0.63–1.11）→ 9.3",s:"GBD 2021/2019；中国疾控科普页、卫健委发布会（2025-01-05）佐证",y:"2019/2021",p:"GBD 建模估计",l:"GBD 死亡数为建模估计；发布会口径为中毒例数（每年 2000–3000 例），两者相差约 4–7 倍（死亡人数与中毒例数口径不同），不可混用",r:"C"},
+ {n:"火灾（监测口径）",v:"4.2",u:"微死亡/年",c:"(0.37×91425+0.51×49835)/141260 = 0.42/10 万 ×10 = 4.2",s:"《中国卫生健康统计年鉴 2023》分项",y:"2021",p:"死因监测「火灾」分项",l:"与消防救援局口径并列展示",r:"A"},
+ {n:"火灾（消防救援局口径）",v:"1.4",u:"微死亡/年",c:"2001 人（2024）÷ 14.0828 亿 ×1e6 ≈ 1.4",s:"国家消防救援局 2024 年全国火灾数据",y:"2024",p:"2024 年全国火灾 90.8 万起、亡 2001 人",l:"两口径差异来自统计体系不同，不合并",r:"A"},
+ {n:"意外的机械性窒息",v:"4.5",u:"微死亡/年",c:"(0.39×91425+0.57×49835)/141260 = 0.45/10 万 ×10 = 4.5",s:"《中国卫生健康统计年鉴 2023》分项",y:"2021",p:"全人群（城乡加权）",l:"—",r:"A"},
+ {n:"婴儿窒息（城市，每10万婴儿）",v:"55.2",u:"微死亡/10万婴儿·年",c:"5.52/10 万（城市 0 岁组）×10 = 55.2",s:"《中国卫生健康统计年鉴 2023》表 11-2-1",y:"2021",p:"城市婴儿（0 岁组）机械性窒息死亡率",l:"0 岁组为全年累计，部分集中新生儿期（蒙被综合征），年率稀释月龄差异",r:"A"},
+ {n:"婴儿窒息（农村，每10万婴儿）",v:"79.9",u:"微死亡/10万婴儿·年",c:"7.99/10 万（农村 0 岁组）×10 = 79.9",s:"《中国卫生健康统计年鉴 2023》表 11-4-1",y:"2021",p:"农村婴儿（0 岁组）机械性窒息死亡率",l:"同上",r:"A"},
+ {n:"触电",v:"3.5",u:"微死亡/年",c:"(0.27×91425+0.50×49835)/141260 = 0.35/10 万 ×10 = 3.5",s:"《中国卫生健康统计年鉴 2023》「触电」分项",y:"2021",p:"全人群死因登记（以非职业性为主）",l:"职业性/生活触电未拆分；「每年 8000 人」说法无法溯源（见不通过清单）",r:"A"},
+ {n:"自然灾害（全类型）",v:"4.9",u:"微死亡/年",c:"691 人（2023 死亡+失踪）÷ 14.0967 亿 ×1e6 ≈ 4.9",s:"应急管理部《2023 年全国自然灾害基本情况》（2024-01-20）",y:"2023",p:"全国因灾死亡+失踪合计",l:"年度波动极大；「失踪」非严格死亡；分灾种未公开",r:"A"},
+ {n:"狂犬病",v:"0.9",u:"微死亡/年",c:"127 人（2023）÷ 14.0967 亿 ×1e6 ≈ 0.9",s:"国家卫健委《2023 年全国法定传染病疫情概况》",y:"2023",p:"法定传染病报告（乙类）；2017 年 502 人，六年降约 75%",l:"未按「被犬伤暴露人数」作分母；发病后致死率接近 100%",r:"A"},
+ {n:"高空坠物砸死",v:"4.1",u:"微死亡/年",c:"(0.33×91425+0.55×49835)/141260 = 0.41/10 万 ×10 = 4.1",s:"《中国卫生健康统计年鉴 2023》「砸死」分项",y:"2021",p:"全人群死因登记（含施工、倒伏、落石等全场景）",l:"无法拆分「高空抛物/坠物」子类",r:"A"},
+ {n:"流感重症（超额死亡）",v:"约 65",u:"微死亡/年",c:"9.2 万（年均，95%CI 7.5–11.2 万）÷ 14.1 亿 ×1e6 ≈ 65",s:"中国疾控官方综述（2026-06-22）；Li 等《中国公共卫生》佐证（8.81 万/年）",y:"2006–2019 年均",p:"模型估算的流感相关超额死亡（统计归因口径）",l:"非死亡证明直接登记；老年人群占绝大多数",r:"A"},
+ {n:"心源性猝死",v:"约 386",u:"微死亡/年",c:"54.4 万例（年估计）÷ 14.1 亿 ×1e6 ≈ 386",s:"国家心血管病中心（阜外华伟团队，JACC 系列）",y:"2020 年代（机构口径）",p:"流行病学估计（发病率推算）",l:"估计值含院内/院外；与年龄基础病强相关，全人群均值误导性强",r:"C"},
+ {n:"对照·自杀",v:"45.9",u:"微死亡/年",c:"(4.31×91425+5.11×49835)/141260 = 4.59/10 万 ×10 = 45.9",s:"《中国卫生健康统计年鉴 2023》表 11-1-1/11-3-1「自杀」分项；WHO 自杀率指标作国际参照",y:"2021",p:"全人群死因登记；农村高于城市",l:"微死亡框架对「行为风险」表达力有限；仅作背景对照与求助引导，不进入事件加算",r:"A"},
+ {n:"对照·被杀",v:"2.2",u:"微死亡/年",c:"(0.22×91425+0.23×49835)/141260 = 0.22/10 万 ×10 = 2.2",s:"《中国卫生健康统计年鉴 2023》「被杀」分项",y:"2021",p:"全人群死因登记",l:"约为道路交通死亡（监测口径）的 1/50——「媒体放大 vs 统计现实」对照",r:"A"},
+];
+function catalogOf(name){ return CATALOG.find(x=>x.n===name) || null; }
+
+/* ============ 参考文献（GB/T 7714-2015，按章分组；检索日期 2026-11-10） ============ */
+const REFS = [
+ {ch:"序章与第1章", items:[
+  "[1] 国家心血管病中心，中国疾病预防控制中心. 中国死因监测数据集 2021[M]. 北京: 中国科学技术出版社, 2023. [2026-11-10]. https://ncncd.chinacdc.cn/xzzq/202606/t20260605_1836532.htm.",
+  "[2] HOWARD R A. On making life and death decisions[M]//Societal Risk Assessment. Boston: Springer, 1980.",
+  "[3] BLAND J M, SPIEGELHALTER D J. The Norm Chronicles: stories and numbers about danger[M]. London: Profile Books, 2013.",
+  "[4] 中国登山协会. 中国大陆登山户外运动事故报告（2024/2025 年度）[R/OL]. [2026-11-10]. https://cmasports.sport.org.cn/.",
+  "[5] 世界卫生组织. 2023 年全球道路安全状况报告[R/OL]. 2023-12-13. [2026-11-10]. https://www.who.int/zh/news/item/13-12-2023-despite-notable-progress-road-safety-remains-urgent-global-issue.",
+  "[6] 公安部交管局. 醉驾入刑六周年酒驾治理数据[EB/OL]. (2018-06-11). [2026-11-10]. https://www.xinhuanet.com/politics/2018-06/11/c_1122965411.htm."
+ ]},
+ {ch:"第2章", items:[
+  "[7] 中国精算师协会. 中国人身保险业经验生命表（2025）: CL4 单一生命体表[S]. 中精协发〔2025〕80 号, 2025.",
+  "[8] CHEN Z, CHEN J, COLLINS R, et al. China Kadoorie Biobank of 0.5 million people: survey methods, baseline characteristics and long-term follow-up[J]. International Journal of Epidemiology, 2011, 40(6): 1652-1666.",
+  "[9] 李蓉蓉, 王盛书, 李皓炜, 等. 北京城乡健康老龄队列老年人群收缩压与全因死亡风险的关联研究[J]. 中华流行病学杂志, 2025, 46(3): 366-375. DOI:10.3760/cma.j.cn112338-20240713-00423.",
+  "[10] 张骥, 周婕, 李凌, 等. 贵州队列人群空腹血糖与全因死亡风险的关联研究[J]. 中国全科医学, 2025, 28(31): 3924-3931. DOI:10.12114/j.issn.1007-9572.2025.0019.",
+  "[11] ZHANG D, SHEN X, QI X. Resting heart rate and all-cause and cardiovascular mortality in the general population: a meta-analysis[J]. CMAJ, 2016, 188(3): E53-E63.",
+  "[12] YIN J, JIN X, SHAN Z, et al. Relationship of sleep duration with all-cause mortality and cardiovascular events: a systematic review and dose-response meta-analysis of prospective cohort studies[J]. Journal of the American Heart Association, 2017, 6(9): e005947.",
+  "[13] WU S H, LIU Z, HO S C. Metabolic syndrome and all-cause mortality: a meta-analysis of prospective cohort studies[J]. European Journal of Epidemiology, 2010, 25(6): 375-384.",
+  "[14] 那艺诺, 李艺, 王丹, 等. 基于支付意愿法中国统计生命价值系统评价[J]. 中国公共卫生, 2025, 41(2): 239-245. DOI:10.11847/zgggws1145373.",
+  "[15] 国家卫生健康委员会. 中国卫生健康统计年鉴 2023[M/OL]. [2026-11-10]. https://www.nhc.gov.cn/mohwsbwstjxxzx/tjtjnj/list.shtml.",
+  "[16] 国家卫生健康委员会. 2023 年全国法定传染病疫情概况[EB/OL]. [2026-11-10]. https://www.nhc.gov.cn/.",
+  "[17] 应急管理部. 2023 年全国自然灾害基本情况[EB/OL]. (2024-01-20). [2026-11-10]. http://www.mem.gov.cn/xw/yjglbgzdt/202401/t20240120_475697.shtml.",
+  "[18] 中国疾病预防控制中心. 流感流行病学综述[EB/OL]. (2026-06-22). [2026-11-10]. https://www.chinacdc.cn/jkyj/mygh02/ymkyfjb/lg/202606/t20260622_1837283.html.",
+  "[19] 国家统计局. 中国统计年鉴 2024[M/OL]. [2026-11-10]. https://www.stats.gov.cn/sj/ndsj/2024/indexch.htm.",
+  "[20] 世界卫生组织. 全球卫生观察站指标库[DB/OL]. [2026-11-10]. https://data.who.int/indicators.",
+  "[21] 国家卫生健康委员会. 中国吸烟危害健康报告 2020[R]. 北京, 2021.",
+  "[22] 国家消防救援局. 2024 年全国火灾与警情数据[EB/OL]. (2025-01-24). [2026-11-10]. https://www.119.gov.cn/.",
+  "[23] 国家心血管病中心, 中国心血管健康与疾病报告编写组. 中国心血管健康与疾病报告2023概要（心源性猝死流行病学部分）[J]. 中国循环杂志, 2024, 39(7): 625-660.",
+  "[24] LI Z X, YANG X H, YANG J, et al. The cohort study on prediction of incidence of all-cause mortality by metabolic syndrome[J]. PLoS ONE, 2016, 11(5): e0154990.",
+  "[25] ZHU N, YU C, GUO Y, et al. Adherence to a healthy lifestyle and all-cause and cause-specific mortality in Chinese adults: a 10-year prospective study of 0.5 million people[J]. International Journal of Behavioral Nutrition and Physical Activity, 2019, 16: 98. DOI:10.1186/s12966-019-0860-z.",
+  "[26] 中国疾病预防控制中心, 世界卫生组织. 中国成人烟草调查报告 2018[R]. 北京, 2019.",
+  "[27] 朴玮, 赵丽云, 房红芸, 等. 中国18岁及以上成人饮酒行为现况[J]. 中国食物与营养, 2021, 27(10): 15-19.",
+  "[28] 国家卫生健康委员会疾病预防控制局. 中国居民营养与慢性病状况报告（2020 年）[R]. 北京, 2021.",
+  "[29] 中国睡眠研究会. 2025 年中国睡眠健康调查报告[R]. 2025."
+ ]},
+ {ch:"第4章", items:[
+  "[30] QIN X Z, LI L X, LIU Y Y. The value of life and its regional difference in China[J]. China Agricultural Economic Review, 2013, 5(3): 373-390.",
+  "[31] GUO X Q, HAMMITT J K. Compensating wage differentials with unemployment: evidence from China[J]. Environmental and Resource Economics, 2009, 42(2): 187-209."
+ ]},
+ {ch:"第5章", items:[
+  "[32] SPIEGELHALTER D. Using speed of ageing and \"microlives\" to communicate the effects of lifetime habits and environment[J]. BMJ, 2012, 345: e8223.",
+  "[33] 健康中国行动推进委员会. 健康中国行动（2019—2030 年）[R]. 北京, 2019."
+ ]},
+ {ch:"尾声", items:[
+  "[34] 国家卫生健康委员会. 关于应用“12356”全国统一心理援助热线电话号码的通知（国卫医政函〔2024〕259 号；2025-05-01 起全国 31 省区市全部开通）[EB/OL]. 2024-12-25. [2026-11-10]. https://www.nhc.gov.cn/."
+ ]}
+];
+function renderRefs(){
+  const el = $("refList");
+  if(!el) return;
+  el.innerHTML = REFS.map((g,i)=>{
+    const openAttr = (i===0||i===1) ? " open" : "";
+    return '<details'+openAttr+'><summary style="font-size:13px;margin:10px 0 4px;">'+g.ch+'</summary><ol class="refs">'+
+      g.items.map(x=>{
+        const m = x.match(/^\[(\d+)\]/);
+        const id = m ? ' id="ref-'+m[1]+'"' : '';
+        return '<li'+id+'>'+x+'</li>';
+      }).join('')+'</ol></details>';
+  }).join('');
+  // 三期（t37，船长批准）：[n] 锚点自动展开守卫——点击落在默认折叠组内的参考文献锚点时，
+  // 先同步展开该组（禁动效），浏览器随后自然滚动定位；与 summary 内锚点的 stopPropagation 守卫共存。
+  document.addEventListener("click", function(e){
+    const a = e.target.closest('a[href^="#ref-"]');
+    if(!a) return;
+    const tgt = document.getElementById(a.getAttribute("href").slice(1));
+    const grp = tgt ? tgt.closest("details") : null;
+    if(grp && !grp.open) grp.open = true;
+  });
+}
+
+/* ============ 事件呈现口径：D 级量级区间（⑤） + 数据年份（⑦） ============ */
+// ⑤ 需要按区间呈现的条目（多为 D 级长期高危职业，含 C 级 GBD 区间估计如一氧化碳中毒；据《微死亡数据汇编.md》§十四）：
+// 下拉/列表/预览按「≈中值（区间）」显示，曲线仍按中值加算（口径不变）。
+const EV_RANGE = {
+  "缉毒警察":[4500,5000], "金属矿山井下工":[600,900], "高空外墙清洗":[500,700],
+  "消防员":[150,180], "化工一线操作工":[120,150],
+  "建筑高空作业":[80,100], "电焊/气割工":[70,90], "外卖骑手":[60,70],
+  "一氧化碳中毒":[8.0,9.3]
+};
+// ⑦ 数据年份（据《微死亡数据汇编.md》来源记录；未记录年份的条目不标注）。
+// 注意：悬挂滑翔在汇编中无年份来源（其来源为「USPA·BPA 协会 / 研究」；Canbek 2015 是攀岩的来源），勿再为其标注数据年。
+const EV_YEAR = {
+  "登珠峰":"1922–2012", "马特洪峰攀登":"1981–2011", "BASE 跳伞":"1995–2005",
+  "滑翔伞":"2004–2011", "跳伞":"2000–2016", "攀岩":"2015",
+  "二手烟暴露":"2020",
+  "溺水（1–4 岁）":"2021", "溺水（5–14 岁）":"2021", "溺水（全人群）":"2010–2021",
+  "跌倒（≥65 岁）":"2018", "意外跌落（全人群）":"2021",
+  "步行（行人-机动车事故）":"2021", "驾乘机动车（车-车碰撞）":"2021",
+  "骑电动自行车":"2019",
+  "道路交通事故（公安口径）":"2023", "道路交通事故（监测口径）":"2021", "道路交通事故（WHO 口径）":"2021",
+  "酒驾（含醉驾，全人群）":"2011–2017", "酒驾（含醉驾，驾驶人）":"2011–2017",
+  "意外中毒（全人群）":"2021", "一氧化碳中毒":"2019/2021",
+  "火灾（监测口径）":"2021", "火灾（消防救援局口径）":"2024",
+  "意外的机械性窒息":"2021",
+  "婴儿窒息（城市，每10万婴儿）":"2021", "婴儿窒息（农村，每10万婴儿）":"2021",
+  "触电":"2021", "自然灾害（全类型）":"2023", "狂犬病":"2023", "高空坠物砸死":"2021",
+  "流感重症（超额死亡）":"2006–2019", "心源性猝死":"2020 年代",
+};
+
+/* ================= 状态系数（乘算，供「风险换算」折算成等效微死亡） ================= */
+const COEF_FACTORS = [
+  {name:"吸烟", unit:"支/天", def:20, min:0, max:40, f:(v)=>1+0.06*v},
+  {name:"血压（收缩压）", unit:"mmHg", def:160, min:90, max:180, f:(v)=>v>120?Math.pow(1.056,(v-120)/10):1},
+  {name:"BMI", unit:"kg/m²", def:30, min:15, max:35, f:(v)=>(v>=22.5&&v<=25)?1:((v>=15&&v<22.5)?Math.pow(1/0.86,(22.5-v)/5):((v>25&&v<=35)?Math.pow(1.27,(v-25)/5):1))},
+  {name:"腰围", unit:"cm", def:100, min:60, max:110, f:(v,sex)=>{const base=sex==="m"?90:85; return v>base?Math.pow(sex==="m"?1.02:1.03, v-base):1;}},
+  {name:"空腹血糖", unit:"mmol/L", def:7, min:3.9, max:15, f:(v)=>v>5.6?Math.pow(1.10,v-5.6):1},
+  {name:"LDL-C", unit:"mmol/L", def:4, min:1, max:6, f:(v)=>Math.pow(1.12,Math.abs(v-3.05))},
+  {name:"静息心率", unit:"次/分", def:90, min:40, max:100, f:(v)=>v>70?Math.pow(1.12,(v-70)/10):1},
+  {name:"睡眠时长", unit:"小时", def:5, min:3, max:12, f:(v)=>v<7?Math.pow(1.06,7-v):((v>7)?Math.pow(1.13,v-7):1)},
+  {name:"饮酒", unit:"克纯酒精/周", def:100, min:0, max:500, f:(v)=>Math.pow(1.07,v/100)},
+];
+// COEF_FACTORS 索引 + 原始系数 f_旧（锚定前）统一入口：系数公式只在 COEF_FACTORS 定义一次
+const IDX = {SMOKE:0, SBP:1, BMI:2, WAIST:3, GLU:4, LDL:5, HR:6, SLEEP:7, ALCOHOL:8};
+function rawFactor(idx, v, sex){ return COEF_FACTORS[idx].f(v, sex); }
+
+/* ================= 系数 95%CI（供蒙特卡洛置信区间抽样） ================= */
+// 每个系数给一个「对数尺度标准差」σ_ln，抽样时 log(HR) ~ Normal(log(点估计), σ_ln)。
+// σ_ln 由原始文献报的 95%CI 反推：σ_ln = (ln(上界) - ln(下界)) / (2*1.96)。
+// 来源（逐条核对原文）：
+//   血压：HR 1.056 (1.020-1.092) 每10mmHg，李蓉蓉 2025 中华流行病学杂志 46(3):366
+//   血糖：HR 1.10 (1.06-1.15) 每1mmol/L，张骥 2025 中国全科医学 28(31):3924
+//   睡眠短：1.06 (1.04-1.07)/每少1h；睡眠长：1.13 (1.11-1.15)/每多1h，Yin 2017 JAHA
+//   吸烟：≥20支 1.38 (1.34-1.43)，CKB Lancet Public Health 2022
+//   BMI高段：1.27 (1.15-1.40)/每+5，CKB 15年随访
+//   饮酒：≥60g/d 1.20 (1.08-1.34)，CKB 中华流行病学杂志 2022
+//   心率：≥100次/分 2.72 (2.17-3.40)，开滦 中华流行病学杂志 2013
+//   血脂、腰围无「每单位」干净 CI，取相对宽度近似（已标注）。
+const COEF_CI = {
+  // 每项 σ_ln：由 CI 反推的对数标准差；null 表示该系数无 CI（不参与抽样，取点估计）
+  SMOKE:  sigmaFromCI(1.34, 1.43),
+  SBP:    sigmaFromCI(1.020, 1.092),
+  BMI:    sigmaFromCI(1.15, 1.40),
+  WAIST:  sigmaFromCI(1.05, 1.21),   // 中心性肥胖 1.13 (1.05-1.21)，近似
+  GLU:    sigmaFromCI(1.06, 1.15),
+  LDL:    sigmaFromCI(1.06, 1.14),   // 相对宽度近似（U型无每单位CI）
+  HR:     sigmaFromCI(2.17, 3.40),
+  SLEEP:  sigmaFromCI(1.04, 1.15),   // 短/长合并近似
+  ALCOHOL: sigmaFromCI(1.08, 1.34),
+  BODY:   sigmaFromCI(1.15, 1.40),   // 体型=BMI×腰围几何平均，CI 用 BMI 高段近似（1.15-1.40）
+  ACTIVITY: sigmaFromCI(0.76, 0.80), // 运动二分 HR 0.78 (0.76-0.80)，CKB 2019（保护方向，危险方向 1.28 为倒数换算）
+  DIET:    sigmaFromCI(0.85, 0.93), // 饮食二分 HR 0.89 (0.85-0.93)，CKB 2019（保护方向，危险方向 1.12 为倒数换算）
+};
+function sigmaFromCI(lo, hi){ return (Math.log(hi) - Math.log(lo)) / (2*1.96); }
+
+/* ============ 锚定：人群平均参照值（"平均人"=系数 1，生命表即平均人死亡曲线） ============ */
+// 来源见项目文档《状态系数平均值参照表》。性别：m=男 / f=女。
+// 血压分年龄三档（18-44 / 45-59 / 60+，性别合并均值）；<18 取 18-44 档近似（局限已标注）。
+const MEAN_REF = {
+  "吸烟":        {m:8,     f:0.3},
+  "饮酒":        {m:135,   f:20},
+  "血压（收缩压）": {ageBands:[45,60], vals:[122,134,143]},
+  "BMI":         {m:24.2,  f:23.7},
+  "腰围":        {m:84,    f:80},
+  "空腹血糖":    {m:5.5,   f:5.3},
+  "LDL-C":       {m:2.9,   f:2.6},
+  "静息心率":    {m:74,    f:74},
+  "睡眠时长":    {m:7.0,   f:7.0},
+};
+function meanRef(name, sex, age){
+  const r = MEAN_REF[name];
+  if(!r) return null;
+  if(r.ageBands){
+    let v = r.vals[r.vals.length-1];
+    for(let i=0;i<r.ageBands.length;i++){ if(age < r.ageBands[i]){ v = r.vals[i]; break; } }
+    return v;
+  }
+  return sex==="m" ? r.m : r.f;
+}
+// 各系数"人群平均参照值 μ"处的原始系数 f_旧(μ)：把 f_旧 重新归一化到"平均=1"
+function anchorDivisor(name, sex, age){
+  const mu = meanRef(name, sex, age);
+  if(mu===null) return 1;
+  switch(name){
+    case "吸烟":       return 1 + 0.06*mu;
+    case "饮酒":       return Math.pow(1.07, mu/100);
+    case "血压（收缩压）": return mu>120 ? Math.pow(1.056,(mu-120)/10) : 1;
+    case "BMI":        return 1;   // μ(24.2/23.7) 落在 22.5-25 区间
+    case "腰围":       return 1;   // μ(84/80) ≤ 参照 90/85
+    case "空腹血糖":   return 1;   // μ(5.5/5.3) ≤ 5.6
+    case "LDL-C":      return Math.pow(1.12, Math.abs(mu-3.05));
+    case "静息心率":   return mu>70 ? Math.pow(1.12,(mu-70)/10) : 1;
+    case "睡眠时长":   return 1;   // μ=7
+    default:           return 1;
+  }
+}
+
+/* ============ 分簇校准（连乘高估校准方案，见《连乘高估校准方案.md》） ============ */
+// 模型：综合风险 = 生活方式簇 × 代谢簇。每变量只乘一次。
+// 生活方式簇：吸烟/饮酒/运动/饮食 独立相乘后 ×k1 校准到 CKB 联合效应（体型只计数不乘，保留线性）
+// 代谢簇：体型/血糖/血压/血脂 危险方向（f>1）饱和封顶、保护方向（f<1）直接连乘
+// 体型 = BMI、腰围两个值合成一个维度（只填一个取该值，两个都填取几何平均）；横跨两簇（生活簇只计数、代谢簇乘系数）
+// 缩放：k1=1.12（生活方式簇，连乘低估故放大，保留线性）、代谢簇改饱和函数（CAP=1.92 封顶）
+
+// 生活方式簇缩放系数 k1 = 1.12（「极端值相除」，非随手取）：
+//   实测联合效应上界 = CKB 2019（IJBNPA，48.7 万人）「5 因素全不健康 vs 全健康」HR 0.32 的倒数 = 3.13
+//   连乘上界 = 5 因素单因素 HR 倒数相乘 = (1/0.77)×(1/0.88)×(1/0.78)×(1/0.89)×(1/0.76) ≈ 2.80
+//   k1 = 3.13 / 2.80 = 1.12（连乘低估联合效应约 12%，故放大）
+//   口径说明：体型项（1/0.76）同时出现在分子分母，在「体型独立」假设下约掉，故 4 因素口径 k1 相同 ≈1.12。
+const K_LIFESTYLE = 1.12;
+// 代谢簇饱和上界 CAP=1.92（Li 2016 PLOS ONE：代谢 5 成分全超标全因死亡 HR 1.92）
+// 形状参数 τ 上下界有论文依据（Wu 2010 Eur J Epidemiol，21 项前瞻队列/37.2 万人/1.86 万例死亡）：
+//   代谢综合征全因死亡 pooled RR = 1.46（95%CI 1.35–1.57）
+//   典型代谢画像连乘 x*=1.915，反推 τ 使 sat(x*) 落在 1.35–1.57 → τ ∈ [0.9, 1.9]，默认 1.3（→ 显示 1.46，区间正中）
+const CAP_METABOLIC = 1.92;
+const TAU_DEFAULT = 1.3;
+let tau = TAU_DEFAULT;   // 用户可在滑块上调（全局设置，存 localStorage rb_tau）
+
+// CAP 的 95%CI（Li 2016 PLOS ONE，45,542 人，5 代谢成分 HR 1.92，95%CI 1.48–2.49）
+// → σ_CAP = ln(2.49/1.48)/3.92 ≈ 0.133，供蒙特卡洛对饱和封顶值抽样（⑥）
+const CAP_SIGMA = (Math.log(2.49) - Math.log(1.48)) / (2*1.96);
+let lastCapS = CAP_METABOLIC;   // 最近一次 sampleCoeff 实际使用的封顶值（测试可观测）
+let Z_FORCE = null;             // 测试钩子：非 null 时 randn() 固定返回该值（verify.js setZ 用）
+
+// 指数饱和：危险连乘 x 封顶到 CAP；x≤1 返回 1（保护方向 f<1 不在此处理，直接连乘）
+function saturate(x, CAP, t){
+  if(x <= 1) return 1;
+  return 1 + (CAP-1)*(1 - Math.exp(-(x-1)/t));
+}
+
+// 体型系数：BMI、腰围合成一个维度（几何平均）
+function bodyShapeFactor(bmiF, waistF){
+  if(bmiF!==null && waistF!==null) return Math.sqrt(bmiF * waistF);
+  if(bmiF!==null) return bmiF;
+  if(waistF!==null) return waistF;
+  return null;   // 都没填
+}
+
+// 运动系数（三档两端取值，CKB 二分 HR 0.78）
+function activityFactor(act){
+  if(act==="low")  return 1.28;   // 1/0.78
+  if(act==="high") return 0.78;
+  return null;                    // mid 或不填 → 不调整（系数 1）
+}
+
+// 饮食系数（二分：勾 4-5 项=健康 0.89，否则=不健康 1.12；不勾=不调整）
+function dietFactor(diet){
+  if(!diet) return null;
+  const cnt = DIET_IDS.filter(id=>diet[id]).length;
+  if(cnt === 0) return null;      // 一项都没勾 → 不调整
+  return cnt >= 4 ? 0.89 : 1.12;
+}
+
+/* ================= 数据区结束 · 以下为逻辑区 ================= */
+/* 状态：全局 */
+let eventList = [];   // {kind, name, value, unit, perYearMicromort, coefIdx?}
+let mode = "year";
+let lastBgRate = null;   // 含状态系数的背景风险（微死亡/年），render 时更新，供等价换算参照
+
+/* ================= 工具 ================= */
+function $(id){ return document.getElementById(id); }
+function getSex(){ const r=document.querySelector('input[name=sex]:checked'); return r ? r.value : null; }
+function baseValid(){
+  const age = fieldVal("age");
+  const sex = getSex();
+  return age!==null && age>=0 && age<=100 && (sex==="m"||sex==="f");
+}
+function fmt(n, d){ if(n===null||n===undefined||isNaN(n)) return "—"; return Number(n).toFixed(d===undefined?0:d); }
+
+/* ================= 持久化（localStorage） ================= */
+const INPUT_IDS = ["age","bmi","waist","sbp","glu","ldl","hr","sleep","alcohol","smoke","extra"];
+const DIET_IDS = ["diet_v","diet_f","diet_r","diet_l","diet_fish"];
+function getActivity(){ const r=document.querySelector('input[name=activity]:checked'); return r ? (r.value||null) : null; }
+function setActivity(v){ const r=document.querySelector('input[name=activity][value="'+(v||'')+'"]'); if(r) r.checked=true; }
+function getDiet(){ const o={}; DIET_IDS.forEach(id=>{ o[id]=$(id).checked; }); return o; }
+function setDiet(o){ DIET_IDS.forEach(id=>{ $(id).checked = !!(o && o[id]); }); }
+function saveState(){
+  try{
+    localStorage.setItem("rb_events", JSON.stringify(eventList));
+    const o = {};
+    INPUT_IDS.forEach(id=>{ const el=$(id); if(el.value!=='') o[id]=el.value; });
+    const sex = document.querySelector('input[name=sex]:checked');
+    if(sex) o.sex = sex.value;
+    const act = getActivity(); if(act) o.activity = act;
+    o.diet = getDiet();
+    localStorage.setItem("rb_inputs", JSON.stringify(o));
+    localStorage.setItem("rb_tau", String(tau));
+    localStorage.setItem("rb_includeEvents", includeEvents?"1":"0");
+    localStorage.setItem("rb_lspanUnit", lifespanUnit);
+    if(curInstName){
+      const idx = instances.findIndex(i=>i.name===curInstName);
+      if(idx>=0){ const st = collectState(); st.name = curInstName; instances[idx] = st; saveInstances(); }
+    }
+  }catch(e){}
+}
+function loadState(){
+  try{
+    const ev = localStorage.getItem("rb_events");
+    if(ev){ const arr=JSON.parse(ev); if(Array.isArray(arr)) eventList=arr; }
+    const inp = localStorage.getItem("rb_inputs");
+    if(inp){
+      const o=JSON.parse(inp);
+      if(o.sex){ const r=document.querySelector('input[name=sex][value="'+o.sex+'"]'); if(r) r.checked=true; }
+      INPUT_IDS.forEach(id=>{ if(o[id]!==undefined) $(id).value=o[id]; });
+      if(o.activity!==undefined) setActivity(o.activity);
+      if(o.diet) setDiet(o.diet);
+    }
+    const t = localStorage.getItem("rb_tau");
+    if(t!==null){ const tv = parseFloat(t); if(!isNaN(tv) && tv>=0.9 && tv<=1.9) tau = tv; }
+    const ie = localStorage.getItem("rb_includeEvents");
+    if(ie!==null){ includeEvents = (ie==="1"); const c=$("evInCurve"); if(c) c.checked = includeEvents; const n=$("evInCurveNote"); if(n) n.style.display = includeEvents ? "" : "none"; }
+    const lu = localStorage.getItem("rb_lspanUnit");
+    if(lu && ["min","hour","year"].includes(lu)){ lifespanUnit = lu; const s=$("lspanUnit"); if(s) s.value = lu; }
+    setTauUI();
+  }catch(e){}
+}
+// τ 滑块 UI 同步（loadState 与用户拖动时调用）
+function setTauUI(){
+  const el = $("tauSlider");
+  if(el) el.value = tau;
+  $("tauVal").textContent = fmt(tau,1);
+  $("tauExample").textContent = fmt(saturate(1.915, CAP_METABOLIC, tau), 2);
+}
+
+/* ================= 实例（状态档案） ================= */
+let instances = [];      // [{name, sex, inputs, events}]
+let curInstName = null;  // 当前挂靠的实例名（null = 未命名草稿）
+
+function esc(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function loadInstances(){
+  try{
+    instances = JSON.parse(localStorage.getItem("rb_instances")||"[]");
+    if(!Array.isArray(instances)) instances=[];
+    curInstName = localStorage.getItem("rb_curInst") || null;
+    if(curInstName && !instances.some(i=>i.name===curInstName)) curInstName = null;
+  }catch(e){ instances=[]; curInstName=null; }
+}
+function saveCurInst(){
+  try{ localStorage.setItem("rb_curInst", curInstName || ""); }catch(e){}
+}
+function saveInstances(){
+  try{ localStorage.setItem("rb_instances", JSON.stringify(instances)); }catch(e){}
+}
+function collectState(){
+  const inputs = {};
+  INPUT_IDS.forEach(id=>{ const el=$(id); if(el.value!=='') inputs[id]=el.value; });
+  const sex = getSex();
+  const act = getActivity(); if(act) inputs.activity = act;
+  inputs.diet = getDiet();
+  return { name:"", sex: sex||null, inputs, events: JSON.parse(JSON.stringify(eventList)) };
+}
+function applyState(st){
+  INPUT_IDS.forEach(id=>{ $(id).value = (st.inputs && st.inputs[id]!==undefined) ? st.inputs[id] : ''; });
+  document.querySelectorAll('input[name=sex]').forEach(r=>{ r.checked = (st.sex === r.value); });
+  setActivity(st.inputs && st.inputs.activity);
+  setDiet(st.inputs && st.inputs.diet);
+  eventList = (st.events && Array.isArray(st.events)) ? JSON.parse(JSON.stringify(st.events)) : [];
+  updateWaistBounds();
+  render();
+  saveState();
+}
+function instHint(msg){ $("instHint").textContent = msg; }
+function renderInstSelect(){
+  const sel = $("instSelect");
+  let html = '<option value="">— 未保存的状态 —</option>';
+  instances.forEach(i=>{ html += '<option value="'+esc(i.name)+'">'+esc(i.name)+'</option>'; });
+  sel.innerHTML = html;
+  sel.value = curInstName || "";
+}
+
+// 快速开始：四个有名字、有生活背景的人物。数据从他们的生活里「长」出来，不是硬贴。
+// 背景只写人物与故事，不出现「指标/风险/平均」等产品术语（不破第四面墙）。
+const EXAMPLES = [
+  {
+    key:"chenmo", name:"陈默", tag:"10 岁 · 四年级 · 体育委员",
+    story:"陈默今年上四年级，班里的体育委员。他妈说他是「猴托生的」，一刻都坐不住——下课铃一响第一个冲出教室，放学绕远路骑车回家，说是「拉练」。那辆蓝黑色的山地车是去年生日他爸送的，宝贝得很，每天晚上都要擦一遍。周末跟几个同学去河边那个土坡冲坡，膝盖上两块疤就是那时候留的。夏天学会了游泳，每周都去，现在能一口气游完整个泳池。饭量不小，爱吃肉，青菜得他妈盯着才肯吃几口。晚上九点半上床，沾枕头就着。他爸说他「身体底子好，就是太野」。",
+    sex:"m", inputs:{
+      age:"10", bmi:"17", sbp:"105", hr:"78", sleep:"9", smoke:"0", alcohol:"0",
+      activity:"high", diet:{diet_v:false,diet_f:true,diet_r:true,diet_l:false,diet_fish:false}
+    }
+  },
+  {
+    key:"zhixia", name:"林知夏", tag:"27 岁 · 产品经理 · 带饭盒的姑娘",
+    story:"知夏在写字楼上班，做产品经理。同事都认识她那个玻璃饭盒——每天中午掏出来，前一晚自己做的，少油少盐，点外卖的同事看了直摇头。她一周三次健身房，雷打不动，朋友圈偶尔晒张五公里的跑步截图。不抽烟，酒基本不碰，公司团建别人喝啤酒她喝无糖可乐。作息规律得像个闹钟，十一点睡、七点起。唯一让同事意外的是，她每年冬天要请两天假去滑雪，雪季一到就手痒，说是「拿一年的自律，换两天的自由」。体检单干净得像模板，医生每次都夸她「年轻就是本钱」。",
+    sex:"f", inputs:{
+      age:"27", bmi:"21", waist:"68", sbp:"108", glu:"5.0", ldl:"2.4", hr:"62", sleep:"7.5", smoke:"0", alcohol:"10",
+      activity:"high", diet:{diet_v:true,diet_f:true,diet_r:true,diet_l:true,diet_fish:true}
+    }
+  },
+  {
+    key:"guoqing", name:"赵国庆", tag:"52 岁 · 长途司机 · 二十年的路",
+    story:"赵国庆开了二十年长途，人送外号「赵师傅」。仪表盘上那两百多万公里，是他半辈子的路。烟戒不掉，他说「方向盘上一根烟，眼睛才睁得开」，一天两包是常事。吃饭没个准点，服务区有什么扒拉什么，重油重盐，就着这口能多吃半碗。睡觉更是没个准，货催得紧的时候，一夜就眯三四个钟头。去年体检，血压血糖都亮了黄灯，医生让他戒烟、按时吃饭、规律睡觉，他嘴上应着，转头又上了高速。副驾玻璃上贴着老婆写的纸条：「慢点开，家里等你吃饭。」",
+    sex:"m", inputs:{
+      age:"52", bmi:"26", waist:"92", sbp:"150", glu:"6.5", ldl:"3.5", hr:"82", sleep:"5.5", smoke:"25", alcohol:"200",
+      activity:"low", diet:{diet_v:false,diet_f:false,diet_r:true,diet_l:false,diet_fish:false}
+    }
+  },
+  {
+    key:"guifang", name:"陈桂芳", tag:"68 岁 · 退休 · 打太极的阿姨",
+    story:"桂芳阿姨退休八年了。退了休反倒胖了，用她自己的话说「日子过舒坦了，腰也舒坦了」。每天清早去公园打太极，动作慢悠悠的，但心里有数——体检单上血压、血脂都画了箭头，腰围一年比一年宽。去年冬天在楼道里滑了一跤，手腕撑了一下，疼了俩月，打那以后儿女天天打电话，催她减肥、催她穿防滑鞋、催她少喝那口肉汤。她嘴上应着「知道啦知道啦」，回头还是觉得，自己这身子骨，硬朗着呢。就是那根摔过的胳膊，一到阴天，还隐隐地疼。",
+    sex:"f", inputs:{
+      age:"68", bmi:"28", waist:"92", sbp:"155", glu:"5.8", ldl:"3.6", hr:"76", sleep:"7", smoke:"0", alcohol:"0",
+      activity:"mid", diet:{diet_v:true,diet_f:false,diet_r:true,diet_l:false,diet_fish:false}
+    }
+  },
+];
+
+// 渲染「快速开始」四个人物卡
+function renderExampleCards(){
+  const box = $("exampleCards");
+  if(!box) return;
+  box.innerHTML = EXAMPLES.map(ex=>{
+    return '<div class="ex-card" style="border:1px solid var(--line);border-radius:10px;padding:12px 14px;">'+
+      '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap;">'+
+        '<div><b style="font-size:14px;">'+esc(ex.name)+'</b> <span style="color:var(--mut);font-size:12px;">'+esc(ex.tag)+'</span></div>'+
+        '<div style="display:flex;gap:6px;">'+
+          '<button type="button" class="btn btn-sm ex-toggle" data-key="'+ex.key+'">看他的故事</button>'+
+          '<button type="button" class="btn btn-sm btn-primary ex-fill" data-key="'+ex.key+'">用他填表</button>'+
+        '</div>'+
+      '</div>'+
+      '<div class="ex-story" data-key="'+ex.key+'" style="display:none;margin-top:8px;font-size:13px;line-height:1.8;color:var(--ink);border-left:3px solid var(--line);padding-left:12px;">'+esc(ex.story)+'</div>'+
+      '</div>';
+  }).join("");
+  // 展开/收起故事
+  box.querySelectorAll(".ex-toggle").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      const key = b.dataset.key;
+      const story = box.querySelector('.ex-story[data-key="'+key+'"]');
+      if(story.style.display==="none"){ story.style.display="block"; b.textContent="收起"; }
+      else { story.style.display="none"; b.textContent="看他的故事"; }
+    });
+  });
+  // 用他填表
+  box.querySelectorAll(".ex-fill").forEach(b=>{
+    b.addEventListener("click", ()=>{ applyExample(b.dataset.key); });
+  });
+}
+function applyExample(key){
+  const ex = EXAMPLES.find(e=>e.key===key);
+  if(!ex) return;
+  INPUT_IDS.forEach(id=>{ $(id).value = (ex.inputs && ex.inputs[id]!==undefined) ? ex.inputs[id] : ''; });
+  document.querySelectorAll('input[name=sex]').forEach(r=>{ r.checked = (ex.sex === r.value); });
+  setActivity(ex.inputs && ex.inputs.activity);
+  setDiet(ex.inputs && ex.inputs.diet);
+  eventList = [];
+  updateWaistBounds();
+  render();
+  saveState();
+  instHint('已按「'+ex.name+'」的生活填了一份数据，可继续修改；如需保留可「存为档案」。');
+}
+// 清空所有输入（个人信息 + 事件），重新自己填
+function clearAll(){
+  INPUT_IDS.forEach(id=>{ $(id).value = ''; });
+  document.querySelectorAll('input[name=sex]').forEach(r=>{ r.checked = false; });
+  setActivity(null);
+  setDiet({});
+  eventList = [];
+  updateWaistBounds();
+  render();
+  saveState();
+  instHint('已清空，可以自己填写了。');
+}
+
+/* ================= 生命表查询（年龄，岁） ================= */
+function qAt(age, sex){
+  const arr = sex==="m" ? MALE : FEMALE;
+  if(age < 0) age = 0;
+  if(age >= 105) return 1;              // 105 岁封顶 1000‰
+  const i = Math.floor(age);
+  const frac = age - i;
+  const a = arr[i]/1000, b = arr[i+1]/1000;
+  return a + (b-a)*frac;
+}
+
+/* ================= 状态系数（9 个 + 运动 + 饮食） ================= */
+function computeCoefficients(age, sex, bmi, waist, sbp, glu, ldl, hr, sleep, alcohol, smoke, activity, diet){
+  const warn = [];  // 超范围（兜底，正常已被输入约束拦住）
+  const note = [];  // 局限提示，系数照算
+  let parts = [];
+  const indepFactors = [];  // 独立因素（心率/睡眠）：不在任何簇的锚内，单独乘、不缩放
+
+  // BMI
+  if(bmi!==null){
+    if(bmi<15 || bmi>35){ warn.push("BMI "+bmi.toFixed(1)+" 超出数据支持范围（15–35），此系数未计入。"); }
+    else {
+      const f = rawFactor(IDX.BMI, bmi, sex) / anchorDivisor("BMI", sex, age);
+      note.push("BMI 系数：最低死亡率在 22.5–25；低于 22.5 每低 5 单位 ÷0.86、高于 25 每高 5 单位 ×1.27（CKB 中国慢性病前瞻性研究，约 50 万人，随访 15 年）。");
+      if(age>=18 && bmi>=15 && bmi<22.5){ note.push("BMI "+bmi.toFixed(1)+" 处于过瘦段，受吸烟混杂，不吸烟者实际风险可能更低。"); }   // ④ 仅成人适用；未成年人按 WS/T 586-2018 分年龄界值判定（见 age<18 note）
+      parts.push({k:"BMI", f:f});
+    }
+  }
+  // 腰围
+  if(waist!==null){
+    const base = sex==="m" ? 90 : 85;
+    const lo = sex==="m" ? 70 : 60, hi = sex==="m" ? 110 : 100;
+    if(waist<lo || waist>hi){ warn.push("腰围 "+waist+" 超出数据支持范围（"+(sex==="m"?"男 70–110":"女 60–100")+"），此系数未计入。"); }
+    else {
+      const f = rawFactor(IDX.WAIST, waist, sex) / anchorDivisor("腰围", sex, age);
+      parts.push({k:"腰围", f:f});
+      if(waist>base) note.push("腰围系数：每 +1 cm → 全因死亡 男 +2%、女 +3%（中华流行病学杂志 2021，全国 31 省 44 万人，随访 8 年）；临界值男 90 / 女 85 cm。");
+      if(waist<=base) note.push("腰围低于参照值（男 90/女 85）：研究仅支持「腹型肥胖增加风险」的量化，过瘦方向证据弱，此处不调整（不给予保护）。");
+      if(age>=80) note.push("年龄≥80 岁存在「肥胖悖论」（腰围粗反而死亡更低），此系数不适用，仅供参考。");
+    }
+  }
+  // 血压（全因死亡系数，李蓉蓉 2025 老年队列；锚定到分年龄人群平均）
+  if(sbp!==null){
+    if(sbp<90){ warn.push("收缩压 "+sbp+" 提示低血压/休克状态，数据不支持，此系数未计入。"); }
+    else if(sbp>180){ warn.push("收缩压 "+sbp+" 超出数据支持范围（90–180），此系数未计入。"); }
+    else {
+      const f = rawFactor(IDX.SBP, sbp, sex) / anchorDivisor("血压（收缩压）", sex, age);
+      if(sbp>120){
+        note.push("血压系数为全因死亡口径：收缩压每 +10 mmHg → 全因死亡 HR 1.056（李蓉蓉等，中华流行病学杂志 2025, 46(3):366-375，≥60 岁老年队列，中位随访 6.3 年）。");
+        if(age<60) note.push("血压系数来自 ≥60 岁老年队列，60 岁以下属外推，仅参考。");
+      }
+      if(age<18) note.push("年龄 <18：血压的人群平均参照值取自 18–44 岁成人，未成年人无对应均值，此处取 18–44 岁档近似值，仅参考。");
+      if(sbp<=120) note.push("收缩压 ≤120：研究仅支持「偏高增加风险」的量化，偏低方向证据弱，故 ≤120 不细分（均按 120 处理），只体现相对同龄平均的偏离。");
+      parts.push({k:"血压", f:f});
+    }
+  }
+  // 血糖（空腹血糖连续系数，贵州队列）
+  if(glu!==null){
+    if(glu<3.9){ warn.push("空腹血糖 "+glu+" 提示低血糖，数据不支持，此系数未计入。"); }
+    else if(glu>15){ warn.push("空腹血糖 "+glu+" 超出数据支持范围（3.9–15），此系数未计入。"); }
+    else {
+      const f = rawFactor(IDX.GLU, glu, sex) / anchorDivisor("空腹血糖", sex, age);
+      parts.push({k:"血糖", f:f});
+      note.push("血糖系数：空腹血糖每 +1 mmol/L → 全因死亡 HR 1.10（张骥等，中国全科医学 2025, 28(31):3924-3931，贵州队列 9109 人，中位随访 11.69 年）；参照点 5.6，≤5.6 不调整（低血糖方向不确定）；线性关系在糖尿病段（≥7）可能低估（同研究 DM 二元 HR 1.59）。");
+    }
+  }
+  // 血脂 LDL-C（锚定到人群平均）
+  if(ldl!==null){
+    if(ldl<1 || ldl>6){ warn.push("LDL-C "+ldl+" 超出数据支持范围（1–6），此系数未计入。"); }
+    else {
+      const f = rawFactor(IDX.LDL, ldl, sex) / anchorDivisor("LDL-C", sex, age);
+      parts.push({k:"血脂", f:f});
+      note.push("血脂系数：LDL-C 每偏离最低点 3.05 达 1 mmol/L → 全因死亡 ×1.12（ChinaHEART 阜外胡盛寿团队，378 万人，U 型关系）。");
+      if(ldl<2) note.push("LDL-C 偏低（<2），可能反映营养不良/慢性病。");
+    }
+  }
+  // 心率（仅偏高段量化，偏低段不做「保护」外推；锚定到人群平均）
+  if(hr!==null){
+    if(hr<40){ warn.push("静息心率 "+hr+" 提示心动过缓，可能有问题，此系数未计入。"); }
+    else if(hr>100){ warn.push("静息心率 "+hr+" 提示心动过速，此系数未计入。"); }
+    else {
+      const f = rawFactor(IDX.HR, hr, sex) / anchorDivisor("静息心率", sex, age);
+      if(hr>70) note.push("心率系数：每 +10 次/分 → 全因死亡 +9%（Zhang 2016 CMAJ 荟萃，46 项研究 124.6 万人）~ +15%（中国循环杂志 2025，7 万人）。");
+      if(hr<=70) note.push("心率 ≤70 次/分：研究仅支持「偏高增加风险」的量化；低心率可能为运动员性心动过缓（健康）或病态窦房结（有害），方向不确定，此处不细分。");
+      parts.push({k:"心率", f:f});
+      indepFactors.push({k:"心率", f:f, ci:"HR"});   // 独立因素：单独乘、不缩放（不在代谢/生活锚内）
+    }
+  }
+  // 睡眠
+  if(sleep!==null){
+    if(sleep<3 || sleep>12){ warn.push("睡眠 "+sleep+" 小时超出数据支持范围（3–12），此系数未计入。"); }
+    else {
+      const f = rawFactor(IDX.SLEEP, sleep, sex) / anchorDivisor("睡眠时长", sex, age);
+      parts.push({k:"睡眠", f:f});
+      indepFactors.push({k:"睡眠", f:f, ci:"SLEEP"});   // 独立因素：单独乘、不缩放
+      note.push("睡眠系数：最佳 7 小时，每少 1 小时 → 全因死亡 +6%、每多 1 小时 → +13%（Yin 2017 JAHA 荟萃，约 138 万人）。");
+      if(sleep>9) note.push("睡眠 >9 小时可能是基础疾病的标志而非原因（长睡眠证据较弱）。");
+      if(sleep<5) note.push("睡眠 <5 小时不足。");
+    }
+  }
+  // 饮酒（每周纯酒精克数，CKB 孟德尔随机化；锚定到人群平均，0 克也计入体现健康红利）
+  if(alcohol!==null){
+    const f = rawFactor(IDX.ALCOHOL, alcohol, sex) / anchorDivisor("饮酒", sex, age);
+    parts.push({k:"饮酒", f:f});
+    note.push("饮酒系数：每周纯酒精每 +100 克 → 全因死亡 HR 1.07（CKB 孟德尔随机化，柳叶刀子刊 2023，51 万人）；无安全阈值。锚定到人群平均（男约 135 g/周、女约 20 g/周），故 0 克可得到 <1 的系数。");
+  }
+  // 吸烟（每日支数，CKB 线性近似；锚定到人群平均，0 支也计入体现健康红利）
+  if(smoke!==null){
+    const f = rawFactor(IDX.SMOKE, smoke, sex) / anchorDivisor("吸烟", sex, age);
+    parts.push({k:"吸烟", f:f});
+    note.push("吸烟系数：线性近似 1+0.06×支/天（CKB 柳叶刀子刊 2022 实测 10支≈1.6、20支≈2.3、40支≈3.3，线性近似在两端有约 ±0.1 偏差）；极低支数段实际升更快，本近似可能低估。锚定到人群平均（男约 8 支/天、女约 0.3 支/天）——该平均含大量不吸烟者，8 支/天是「全体平均」而非「健康水平」，故 0 支可得到 <1 的系数。");
+  }
+  // 体力活动（三档自评，CKB 2019 二分 HR 0.78）
+  if(activity && activity!=="mid"){
+    const f = activityFactor(activity);
+    parts.push({k:"运动", f:f});
+    note.push("体力活动系数：按「同龄同性别中位数」二分（CKB 2019，50 万人）——偏少 = 1.28、偏多 = 0.78（全因死亡 HR 0.78 的倒数）。这是相对分位（超过周围一半人），非绝对运动量。偏少 1.28 = 1/0.78，为健康方向 HR 的倒数换算，非独立估计的危险方向 HR。");
+  }
+  // 饮食（5 项勾选，CKB 2019 二分）
+  if(diet && DIET_IDS.some(id=>diet[id])){
+    const cnt = DIET_IDS.filter(id=>diet[id]).length;
+    const f = dietFactor(diet);
+    parts.push({k:"饮食", f:f});
+    note.push("饮食系数：CKB 5 项评分（蔬菜/水果每日、红肉每周1-6天、豆类每周≥4天、鱼每周≥1天），你勾了 "+cnt+" 项 → "+(cnt>=4?"健康饮食 HR 0.89":"未达健康标准 HR 1.12")+"（CKB 2019，二分口径，只分「达标/未达标」，无中间档）。未达标 1.12 = 1/0.89，为健康方向 HR 的倒数换算，非独立估计的危险方向 HR。");
+  }
+  if(age<18 && parts.length>0){
+    note.push("年龄 <18：所有健康指标的人群平均参照值均来自 18 岁及以上成人调查，未成年人无对应人群均值，已按成人均值取近似，结果仅作参考。");
+  }
+  if(age<18 && bmi!==null){
+    note.push("未成年人 BMI 不适用成人 22.5 参照：中国标准 WS/T 586-2018 按分年龄分性别界值判定（10 岁男生超重界值 19.2、肥胖 21.9，BMI 17 属正常范围）。本工具对未成年人的状态系数为成人系数外推，仅作演示参考。心率等指标按成人人群均值锚定，未成年人正常静息心率高于成人，相应系数可能轻微偏高。");
+  }
+  if(age<18){
+    note.push("年龄 <18：CL4 生命表为保险人群经验死亡率，婴儿死亡率（约 0.25‰）远低于中国一般人口（约 4.5‰），0–17 岁曲线会严重低估真实死亡风险，仅供演示参考。");
+  }
+  // ① 比例风险假设：跨年龄恒定的已知例外（呈现口径；公式不做年龄分层）
+  if(age>=70){
+    warn.push("年龄 ≥70：综合系数假设各状态因素的风险比在所有年龄恒定（比例风险假设）；已知例外——血压效应在 80 岁后约减半、腰围在 ≥80 岁存在肥胖悖论，本工具未做年龄分层修正，高龄段结果偏保守/偏乐观视方向而定，仅供参考。");
+  }
+  // ③ 心率/睡眠与分簇重叠（呈现口径；不做定量降权）
+  const overlapF = indepFactors.some(x=>Math.abs(x.f-1) > 0.001);
+  if(overlapF){
+    note.push("心率、睡眠与分簇内因素存在重叠（心率 ↔ 体型/运动/吸烟；睡眠 ↔ BMI/血压），其系数为调整后单因素估计，与簇系数独立相乘存在部分重复计数，多因素同时偏离时综合系数可能轻微高估；蓝带未包含此项不确定。");
+  }
+
+  // ===== 分簇计算综合系数（见《连乘高估校准方案.md》，最终定稿=饱和函数方案）=====
+  // 综合风险 = 生活方式簇 × 代谢簇，每变量只乘一次。
+  // 生活方式簇：吸烟/饮酒/运动/饮食 独立相乘 × k1^((lifeRisk-1)/(N_LIFE-1))（线性缩放，体型只计数不乘）
+  // 代谢簇：体型/血压/血糖/血脂，危险方向（f>1）连乘后 saturate 封顶到 CAP=1.92、保护方向（f<1）直接连乘；单因素不饱和
+  // parts 里的单因素连续系数仍保留（供风险构成卡片横向对比，不合成总体）。
+
+  // --- 体型系数（BMI、腰围合成一个维度，几何平均）---
+  const bmiF  = (bmi!==null && bmi>=15 && bmi<=35) ? (rawFactor(IDX.BMI, bmi, sex)/anchorDivisor("BMI", sex, age)) : null;
+  const waistF = (waist!==null) ? (rawFactor(IDX.WAIST, waist, sex)/anchorDivisor("腰围", sex, age)) : null;
+  const bodyF = bodyShapeFactor(bmiF, waistF);
+
+  // --- 生活方式簇（N=5）---
+  const lifeFactors = [];
+  if(smoke!==null){ lifeFactors.push({k:"吸烟", f:rawFactor(IDX.SMOKE, smoke, sex)/anchorDivisor("吸烟", sex, age), ci:"SMOKE"}); }
+  if(alcohol!==null){ lifeFactors.push({k:"饮酒", f:rawFactor(IDX.ALCOHOL, alcohol, sex)/anchorDivisor("饮酒", sex, age), ci:"ALCOHOL"}); }
+  const actF = activityFactor(activity); if(actF!==null){ lifeFactors.push({k:"运动", f:actF, ci:"ACTIVITY"}); }   // ② 运动二分纳入 CI 抽样
+  const dietF = dietFactor(diet); if(dietF!==null){ lifeFactors.push({k:"饮食", f:dietF, ci:"DIET"}); }   // ② 饮食二分纳入 CI 抽样
+  // 注意：体型系数【不】乘进生活方式簇（它只在代谢簇乘一次），
+  // 但体型 f>1 时仍参与生活方式簇的缩放计数（体型「同时归两个簇」的缩放语义）。
+
+  // --- 代谢簇（饱和函数：危险连乘封顶到实测上界，保护连乘不饱和）---
+  // 代谢因素：体型 + 血压 + 血糖 + 血脂，连续系数。危险方向 f>1 连乘进 saturate 封顶（CAP=1.92），
+  // 保护方向 f<1 直接连乘（不饱和，避免对称饱和在 x<1 时掉到负值）。
+  const metFactors = [];
+  if(bodyF!==null){ metFactors.push({k:"体型", f:bodyF, ci:"BODY"}); }
+  if(sbp!==null && sbp>=90 && sbp<=180){ metFactors.push({k:"血压", f:rawFactor(IDX.SBP, sbp, sex)/anchorDivisor("血压（收缩压）", sex, age), ci:"SBP"}); }
+  if(glu!==null && glu>=3.9 && glu<=15){ metFactors.push({k:"血糖", f:rawFactor(IDX.GLU, glu, sex)/anchorDivisor("空腹血糖", sex, age), ci:"GLU"}); }
+  if(ldl!==null && ldl>=1 && ldl<=6){ metFactors.push({k:"血脂", f:rawFactor(IDX.LDL, ldl, sex)/anchorDivisor("LDL-C", sex, age), ci:"LDL"}); }
+
+  const cc = computeFromParts({lifeFactors, metFactors, indepFactors, bodyF});   // ⑨ 单一实现
+  return {coeff: cc.coeff, warn, note, parts, lifestyle: cc.lifestyle, metabolic: cc.metabolic, lifeFactors, metFactors, indepFactors, bodyF, lifeRisk: cc.lifeRisk, lifeScale: cc.lifeScale};
+}
+
+/* ⑨ 分簇缩放逻辑单一实现（computeCoefficients 与 sampleCoeff 共用，杜绝双实现漂移）。
+   res = {lifeFactors, metFactors, indepFactors, bodyF}（因子表，可含抽样扰动后的 f）；
+   cap 可选：蒙特卡洛对饱和封顶值 CAP 抽样（⑥）时传入，缺省用 CAP_METABOLIC。 */
+function computeFromParts(res, cap){
+  const capU = (cap===undefined || cap===null) ? CAP_METABOLIC : cap;
+
+  let lifestyle = 1;
+  let lifeRisk = 0;   // f>1 的个数（用于缩放；含体型）
+  res.lifeFactors.forEach(lf=>{ lifestyle *= lf.f; if(lf.f > 1.001) lifeRisk++; });
+  if(res.bodyF!==null && res.bodyF > 1.001){ lifeRisk++; }   // 体型参与生活簇计数，但不乘
+  const N_LIFE = 5;
+  const lifeScale = lifeRisk >= 1 ? Math.pow(K_LIFESTYLE, (lifeRisk-1)/(N_LIFE-1)) : 1;
+  const lifestyleScaled = lifestyle * lifeScale;
+
+  let metDanger = 1, metProtect = 1, metDangerCount = 0;
+  res.metFactors.forEach(mf=>{ if(mf.f > 1.001){ metDanger *= mf.f; metDangerCount++; } else if(mf.f < 0.999){ metProtect *= mf.f; } });
+  // 单因素不饱和（=裸 HR，避免低估单项实测风险）；≥2 因素才饱和封顶（消除重复计数高估）。
+  // 二者分属不同研究的参照系，在 count=1→2 处可能「加因素反而降」，故取 max(饱和值, 最大单因素) 保单调。
+  const maxSingle = metDangerCount >= 1 ? Math.max(...res.metFactors.filter(mf=>mf.f>1.001).map(mf=>mf.f)) : 1;
+  const metabolicScaled = Math.max(metDangerCount >= 2 ? saturate(metDanger, capU, tau) : metDanger, maxSingle) * metProtect;
+
+  let coeff = lifestyleScaled * metabolicScaled;
+  res.indepFactors.forEach(x=>{ coeff *= x.f; });   // 心率/睡眠作为独立因素直接乘（不在任何锚内，与代谢/生活的弱重叠未校正）
+
+  return {coeff, lifestyle: lifestyleScaled, metabolic: metabolicScaled, lifeFactors: res.lifeFactors, metFactors: res.metFactors, indepFactors: res.indepFactors, bodyF: res.bodyF, lifeRisk, lifeScale};
+}
+
+/* ================= 蒙特卡洛：按系数 CI 抽扰动系数 ================= */
+// 抽样生活方式簇 + 代谢簇的连续系数（有 CI 的：吸烟/饮酒/体型/血压/血糖/血脂/运动/饮食，
+// 心率/睡眠独立因素同样抽样）。缩放公式与 computeCoefficients 完全一致（⑨ 共用 computeFromParts）。
+function sampleCoeff(res){
+  // 生活方式簇（体型系数不乘进 lifestyle，但体型 f>1 时参与 lifeRisk 计数）
+  const lifeFactors = res.lifeFactors.map(lf=>{
+    let f = lf.f;
+    if(lf.ci){
+      const sigma = COEF_CI[lf.ci];
+      if(sigma){ const z = randn(); f = f * Math.exp(sigma * z); f = Math.max(0.001, f); }
+    }
+    return {k:lf.k, f:f};
+  });
+  // 代谢簇（metFactors 已含体型：危险连乘进饱和封顶、保护连乘不饱和；单因素不饱和）
+  const metFactors = res.metFactors.map(mf=>{
+    let f = mf.f;
+    if(mf.ci){
+      const sigma = COEF_CI[mf.ci];
+      if(sigma){ const z = randn(); f = f * Math.exp(sigma * z); f = Math.max(0.001, f); }
+    }
+    return {k:mf.k, f:f};
+  });
+  // ⑥ CAP 抽样：≥2 个代谢危险因素启用饱和封顶时，封顶值按 Li 2016 5 成分 HR 的 95%CI（1.48–2.49）抽样
+  let metDangerCount = 0;
+  metFactors.forEach(mf=>{ if(mf.f > 1.001) metDangerCount++; });
+  let capS = CAP_METABOLIC;
+  if(metDangerCount >= 2){ capS = CAP_METABOLIC * Math.exp(CAP_SIGMA * randn()); }
+  lastCapS = capS;   // 测试可观测（verify.js 用 getLastCapS() 断言 [1.48,2.49] 边界）
+  // 独立因素（心率/睡眠）：直接乘、不缩放，但参与 CI 抽样
+  const indepFactors = (res.indepFactors||[]).map(x=>{
+    let f = x.f;
+    if(x.ci){
+      const sigma = COEF_CI[x.ci];
+      if(sigma){ const z = randn(); f = f * Math.exp(sigma*z); f = Math.max(0.001, f); }
+    }
+    return {k:x.k, f:f};
+  });
+  return computeFromParts({lifeFactors, metFactors, indepFactors, bodyF: res.bodyF}, capS).coeff;
+}
+// 标准正态随机数（Box-Muller）；Z_FORCE 为测试钩子（verify.js setZ 用，非 null 时固定返回）
+function randn(){
+  if(Z_FORCE!==null && Z_FORCE!==undefined){ return Z_FORCE; }
+  let u=0, v=0;
+  while(u===0) u=Math.random();
+  while(v===0) v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+// 蒙特卡洛：对 activeParts 抽 N 次，返回每年的 {p25,p50,p75,p025,p975}
+// ⑪ band 缓存：cacheKey（因子指纹 + τ + 模式）相同时直接复用上次结果，避免 render 全量重算 N=1000
+let bandCacheKey = null;
+let bandCache = null;
+function monteCarloBand(age, sex, res, extra, mode, maxMonths, N, cacheKey){
+  N = N || 1000;
+  if(cacheKey!==undefined && cacheKey===bandCacheKey && bandCache){ return bandCache; }
+  const len = (mode==="month") ? (maxMonths||36) : (105 - age);
+  const acc = [];
+  for(let t=0; t<=len; t++) acc.push([]);
+  for(let i=0;i<N;i++){
+    const c = sampleCoeff(res);
+    const curve = computeSurvival(age, sex, c, extra, mode, maxMonths);
+    for(let t=0; t<=len; t++){
+      const d = curve[t] || curve[curve.length-1];
+      acc[t].push(d.s);
+    }
+  }
+  const band = acc.map(arr=>{
+    arr.sort((a,b)=>a-b);
+    const q = p=>arr[Math.min(arr.length-1, Math.max(0, Math.round(p*arr.length)))];
+    return {p025:q(0.025), p25:q(0.25), p50:q(0.50), p75:q(0.75), p975:q(0.975)};
+  });
+  if(cacheKey!==undefined){ bandCacheKey = cacheKey; bandCache = band; }
+  return band;
+}
+
+/* ================= 存活率计算 ================= */
+function clampQ(q){ return Math.max(0, Math.min(1, q)); }  // 年死亡率封顶 0–1，防负存活率/NaN
+function computeSurvival(age, sex, coeff, extraPerYear, mode, maxMonths){
+  const out = [];
+  const extra = extraPerYear/1e6;
+  if(mode==="month"){
+    // 月模式：月死亡率 = 1-(1-年死亡率)^(1/12)
+    const months = maxMonths || 36;
+    let s = 1;
+    for(let t=0; t<=months; t++){
+      if(t===0){ out.push({t, s:1}); continue; }
+      // 按年推进到 t 个月对应的年龄，用月死亡率
+      const ageNow = age + (t-1)/12;
+      const qy = clampQ(qAt(ageNow, sex)*coeff + extra);
+      const qm = 1 - Math.pow(1-qy, 1/12);
+      s = s*(1-qm);
+      out.push({t, s});
+    }
+  } else {
+    // 年模式：到 105 岁
+    let s = 1;
+    const maxAge = 105;
+    for(let t=0; t<=maxAge-age; t++){
+      if(t===0){ out.push({t, s:1}); continue; }
+      const qy = clampQ(qAt(age+t-1, sex)*coeff + extra);
+      s = s*(1-qy);
+      out.push({t, s});
+    }
+  }
+  return out;
+}
+
+/* ================= 事件累计 ================= */
+let includeEvents = false;   // 1.0.0：事件默认仅对比不叠加（避免与全因生命表重复计数），勾选「计入曲线」后主动叠加
+function eventTotalDisplay(){ return eventList.filter(e=>e.kind!=="coef").reduce((a,e)=>a+e.perYearMicromort,0); }
+function eventTotalMicromort(){ return includeEvents ? eventTotalDisplay() : 0; }
+function extraPerYear(){ return (fieldVal("extra")||0) + eventTotalMicromort(); }
+
+/* ================= 1.0.0 寿命收支账 ================= */
+let lifespanUnit = "min";   // 三精度：year=年（终生差值）/ hour=小时每天 / min=分钟每天（默认）
+
+function lifeExpectancyYears(curve, mode){
+  const dt = (mode==="month") ? 1/12 : 1;
+  let s = 0;
+  for(let i=0;i<curve.length;i++) s += curve[i].s * dt;
+  return s;
+}
+
+function coeffWithFactorAvg(res, key){
+  const lifeFactors = (res.lifeFactors||[]).map(x=> x.k===key ? {k:x.k, f:1} : {k:x.k, f:x.f});
+  const metFactors  = (res.metFactors||[]).map(x=> x.k===key ? {k:x.k, f:1} : {k:x.k, f:x.f});
+  const indepFactors= (res.indepFactors||[]).map(x=> x.k===key ? {k:x.k, f:1} : {k:x.k, f:x.f});
+  const bodyF = (key==="体型") ? null : res.bodyF;
+  return computeFromParts({lifeFactors, metFactors, indepFactors, bodyF}).coeff;
+}
+
+function lifespanFmt(deltaYears, leAvg, unit){
+  if(unit==="year") return {v:deltaYears, u:"年"};
+  const perDay = deltaYears / Math.max(leAvg, 1e-9) * 24;
+  if(unit==="hour") return {v:perDay, u:"小时/天"};
+  return {v:perDay*60, u:"分钟/天"};
+}
+
+function fmtLife(v, unit){
+  if(unit==="year") return fmt(v, 2);
+  if(unit==="hour") return fmt(v, 2);
+  return (Math.abs(v) < 1) ? fmt(v, 1) : fmt(v, 0);
+}
+
+function buildLifespanLedger(age, sex, res, extra){
+  // 1.0.0：终生期望寿命必须始终按「年模式到 105 岁」计算，与图表/数字卡的显示模式（年/月）解耦，
+  // 否则月模式下 maxMonths 默认 36 个月会把 leAvg 截成 ~3 年，导致「小时/天、分钟/天」放大约 13 倍。
+  const avgCurve = computeSurvival(age, sex, 1, 0, "year", 0);
+  const actCurve = computeSurvival(age, sex, res.coeff, extra, "year", 0);
+  const leAvg = lifeExpectancyYears(avgCurve, "year");
+  const leAct = lifeExpectancyYears(actCurve, "year");
+  const totalDelta = leAct - leAvg;
+  const seen = {};
+  const rows = [];
+  [].concat(res.lifeFactors||[], res.metFactors||[], res.indepFactors||[]).forEach(x=>{
+    if(seen[x.k]) return;
+    seen[x.k] = true;
+    const c = coeffWithFactorAvg(res, x.k);
+    const leMarg = lifeExpectancyYears(computeSurvival(age, sex, c, extra, "year", 0), "year");
+    rows.push({k:x.k, deltaYears: leAct - leMarg});
+  });
+  rows.sort((a,b)=>a.deltaYears-b.deltaYears);
+  return {leAvg, totalDelta, rows};
+}
+
+function renderLifespan(ageI, sex, res, extra){
+  const box = $("lspanLedger");
+  if(!box) return;
+  const ledger = buildLifespanLedger(ageI, sex, res, extra);
+  const unit = lifespanUnit;
+  const tot = lifespanFmt(ledger.totalDelta, ledger.leAvg, unit);
+  const totCls = tot.v > 0.0005 ? "ok" : (tot.v < -0.0005 ? "danger" : "mut");
+  const totSign = tot.v > 0.0005 ? "+" : "";
+  let rowsHtml = "";
+  ledger.rows.forEach(r=>{
+    if(Math.abs(r.deltaYears) < 1e-6) return;
+    const f = lifespanFmt(r.deltaYears, ledger.leAvg, unit);
+    const cls = f.v > 0.0005 ? "ok" : "danger";
+    const sign = f.v > 0.0005 ? "+" : "";
+    rowsHtml += '<tr><td style="padding:3px 0;">'+esc(r.k)+'</td><td style="text-align:right;padding:3px 0;color:var(--'+cls+');font-weight:600;font-family:Georgia,\'Times New Roman\',serif;">'+sign+fmtLife(f.v, unit)+' '+f.u+'</td></tr>';
+  });
+  if(rowsHtml==="") rowsHtml = '<tr><td colspan="2" style="color:var(--mut);">未填写任何偏离平均的健康指标，或各因素都接近平均。</td></tr>';
+  box.innerHTML =
+    '<div style="margin:8px 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);">'+
+      '<div style="font-size:12.5px;color:var(--mut);">总体收支（你的状态 vs 同龄同性别平均，终生差值摊到剩余每一天）</div>'+
+      '<div style="font-size:22px;font-weight:700;font-family:Georgia,\'Times New Roman\',serif;color:var(--'+totCls+');">'+totSign+fmtLife(tot.v, unit)+' <span style="font-size:13px;font-weight:400;">'+tot.u+'</span></div>'+
+    '</div>'+
+    '<table style="width:100%;border-collapse:collapse;font-size:13px;">'+
+      '<thead><tr><th style="text-align:left;font-weight:600;color:var(--mut);padding:4px 0;">逐因素（单独把这一项拨回平均的敏感度）</th><th style="text-align:right;font-weight:600;color:var(--mut);padding:4px 0;">收支</th></tr></thead>'+
+      '<tbody>'+rowsHtml+'</tbody>'+
+    '</table>'+
+    '<p class="src" style="margin:8px 0 0;">逐因素之间、逐因素与总体之间存在分簇与饱和，不可简单相加（逐项之和 ≠ 总体）。'+DISCLAIMER_TXT+'</p>';
+  const note = $("lspanNote");
+  if(note) note.style.display = "none";
+}
+
+function clearLifespan(){
+  const box = $("lspanLedger");
+  if(box) box.innerHTML = "";
+  const note = $("lspanNote");
+  if(note) note.style.display = "";
+}
+
+/* ================= 绘图 ================= */
+function draw(series){
+  const cv = $("chart");
+  const dpr = window.devicePixelRatio || 1;
+  const W = 880, H = 400;                      // 逻辑尺寸（CSS 仍 width:100% 响应式）
+  const bw = Math.round(W*dpr), bh = Math.round(H*dpr);
+  if(cv.width !== bw || cv.height !== bh){ cv.width = bw; cv.height = bh; }
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);      // 按 dpr 放大，逻辑坐标不变
+  ctx.clearRect(0,0,W,H);
+  const padL=50, padR=18, padT=18, padB=40;
+  const plotW = W-padL-padR, plotH = H-padT-padB;
+  const xs = series.base.map(d=>d.t);
+  const xMin=0, xMax=Math.max(...xs);
+  const yMin=0, yMax=1;
+  const X = t => padL + (t-xMin)/(xMax-xMin)*plotW;
+  const Y = s => padT + (1-s)*plotH;
+
+  // 颜色令牌（与 CSS 设计令牌同源；canvas 不接受 var()，运行时解析）
+  function cssVar(name, fallback){
+    try{ const v = getComputedStyle(document.documentElement).getPropertyValue(name); return (v && v.trim()) ? v.trim() : fallback; }
+    catch(e){ return fallback; }
+  }
+  const C_BEAD = cssVar("--bead", "#C9C1AA"), C_LINE = cssVar("--line", "#DCD4BD");
+  const C_VGRID = "#E7E1CE", C_AXIS = cssVar("--mut", "#6E6960"), C_INK = cssVar("--ink", "#2B2A26");
+  const C_BASE = "#8A8578";
+  // 网格 + 轴
+  ctx.fillStyle=C_AXIS; ctx.font="11px Georgia, serif"; ctx.lineWidth=1;
+  for(let g=0; g<=1; g+=0.25){
+    const y=Y(g);
+    ctx.strokeStyle = (Math.abs(g*2-Math.round(g*2))<1e-9) ? C_BEAD : C_LINE;
+    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(W-padR,y); ctx.stroke();
+    ctx.textAlign="right"; ctx.fillText((g*100)+"%", padL-6, y+3);
+  }
+  // x 轴标签
+  ctx.textAlign="center";
+  const step = mode==="month" ? 6 : 10;
+  for(let t=0; t<=xMax; t+=step){
+    const x=X(t);
+    ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,H-padB); ctx.strokeStyle=C_VGRID; ctx.stroke();
+    ctx.fillStyle=C_AXIS; ctx.fillText(t, x, H-padB+16);
+  }
+  ctx.fillStyle=C_AXIS; ctx.textAlign="center";
+  ctx.fillText(mode==="month"?"未来月数":"未来年数（岁数增量）", W/2, H-6);
+
+  // 基础曲线（灰）
+  function line(series, color, width){
+    ctx.beginPath();
+    series.forEach((d,i)=>{
+      const x=X(d.t), y=Y(d.s);
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.strokeStyle=color; ctx.lineWidth=width; ctx.stroke();
+  }
+  line(series.base, C_BASE, 2);
+  if(series.adj){ line(series.adj, "#185FA5", 2); }
+
+  // 置信带（蒙特卡洛，仅当 series.band 存在）
+  if(series.band){
+    const band = series.band;
+    function fillBand(kLo, kHi, color){
+      ctx.beginPath();
+      band.forEach((d,i)=>{ const x=X(xs[i]), y=Y(d[kLo]); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); });
+      for(let i=band.length-1; i>=0; i--){ ctx.lineTo(X(xs[i]), Y(band[i][kHi])); }
+      ctx.closePath();
+      ctx.fillStyle=color; ctx.fill();
+    }
+    fillBand("p025", "p975", "rgba(24,95,165,0.10)");   // 外层 2.5–97.5%（浅）
+    fillBand("p25", "p75", "rgba(24,95,165,0.20)");     // 内层 25–75%（深）
+    // 中位数线
+    ctx.beginPath();
+    band.forEach((d,i)=>{ const x=X(xs[i]), y=Y(d.p50); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); });
+    ctx.strokeStyle="#185FA5"; ctx.lineWidth=1.5; ctx.stroke();
+  }
+
+  // 图例
+  let ly=padT+10;
+  ctx.fillStyle=C_AXIS; ctx.textAlign="left"; ctx.font="12px Georgia, serif";
+  ctx.fillStyle=C_BASE; ctx.fillRect(padL, ly-8, 18, 3);
+  ctx.fillStyle=C_INK; ctx.fillText("基础·点估计（生命表×系数）", padL+24, ly-3);
+  if(series.band){
+    ly+=18;
+    ctx.fillStyle="rgba(24,95,165,0.20)"; ctx.fillRect(padL, ly-8, 18, 10);
+    ctx.fillStyle=C_INK; ctx.fillText("置信区间（25–75% 深 / 2.5–97.5% 浅，中位线=数字卡取值）", padL+24, ly-3);
+  }
+  if(series.adj){
+    ly+=18;
+    ctx.fillStyle="#185FA5"; ctx.fillRect(padL, ly-8, 18, 3);
+    ctx.fillStyle=C_INK; ctx.fillText("叠加额外风险后", padL+24, ly-3);
+  }
+  lastSeries = series;   // 二期：供悬垂气泡读取（与数字卡同源，不重复计算）
+}
+
+/* ================= 悬垂气泡（二期 P0）：十字线 + 数据气泡 ================= */
+let lastSeries = null;
+let lastBubble = { active:false, locked:false, t:null, px:0, py:0, pointerType:"mouse", hideTimer:null };
+function chartGeom(){
+  const W=880, H=400, padL=50, padR=18, padT=18, padB=40;
+  const xs = lastSeries ? lastSeries.base.map(d=>d.t) : [0];
+  const xMax = Math.max(...xs);
+  return { W, H, padL, padR, padT, padB, plotW: W-padL-padR, plotH: H-padT-padB, xMax };
+}
+function chartX(t){ const g=chartGeom(); return g.padL + (g.xMax<=0?0:t/g.xMax)*g.plotW; }
+function chartY(s){ const g=chartGeom(); return g.padT + (1-s)*g.plotH; }
+function tAtPx(px){
+  if(!lastSeries) return null;
+  const g = chartGeom();
+  if(px < g.padL || px > g.W-g.padR) return null;
+  const tF = g.xMax * (px-g.padL)/g.plotW;   // 吸附最近索引（年模式整年 / 月模式整月）
+  let best = lastSeries.base[0], bd = Infinity;
+  lastSeries.base.forEach(d=>{ const dd=Math.abs(d.t-tF); if(dd<bd){ bd=dd; best=d; } });
+  return best.t;
+}
+function drawCrosshair(t){
+  const ov = $("chartOverlay");
+  if(!ov || !lastSeries || t===null || t===undefined) { if(ov){ const c=ov.getContext("2d"); c.clearRect(0,0,ov.width,ov.height); } return; }
+  const g = chartGeom();
+  const dpr = window.devicePixelRatio || 1;
+  const bw = Math.round(g.W*dpr), bh = Math.round(g.H*dpr);
+  if(ov.width !== bw || ov.height !== bh){ ov.width=bw; ov.height=bh; }
+  const ctx = ov.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,g.W,g.H);
+  const bd = lastSeries.base.find(d=>d.t===t) || lastSeries.base[lastSeries.base.length-1];
+  const x = chartX(t), y = chartY(bd.s);
+  ctx.strokeStyle="rgba(24,95,165,0.55)"; ctx.lineWidth=1; ctx.setLineDash([4,3]);
+  ctx.beginPath(); ctx.moveTo(x,g.padT); ctx.lineTo(x,g.H-g.padB); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(g.padL,y); ctx.lineTo(g.W-g.padR,y); ctx.stroke();
+  ctx.setLineDash([]);
+}
+function bubbleTextAt(t){
+  if(!lastSeries) return null;
+  const g = chartGeom();
+  const bd = lastSeries.base.find(d=>d.t===t) || lastSeries.base[lastSeries.base.length-1];
+  const ad = lastSeries.adj ? (lastSeries.adj.find(d=>d.t===t)||null) : null;
+  const bandD = lastSeries.band ? (lastSeries.band[t] || null) : null;   // band 为按 t 索引的 {p025,p25,p50,p75,p975} 数组（t16 修复：原 find(d=>d.t===t) 恒为空）
+  const ageAt = lastAge + (mode==="month" ? t/12 : t);
+  let html = '<div><b>'+t+' '+(mode==="month"?"月":"年")+'后（'+ageAt+' 岁）</b></div>';
+  html += '<div class="row"><span>基础 · 点估计</span><b>'+fmt(bd.s*100,2)+'%</b></div>';
+  if(ad){ html += '<div class="row"><span>叠加额外风险后</span><b>'+fmt(ad.s*100,2)+'%</b></div>'; }
+  if(bandD){ html += '<div class="row"><span>置信区间中位数</span><b>'+fmt(bandD.p50*100,2)+'%</b></div>';
+    html += '<div class="row"><span>25–75%</span><span>'+fmt(bandD.p25*100,2)+'%–'+fmt(bandD.p75*100,2)+'%</span></div>'; }
+  return { html, x: chartX(t), y: chartY(bd.s) };
+}
+function refreshBubble(){
+  if(!lastBubble.active || lastBubble.t===null) return;
+  const info = bubbleTextAt(lastBubble.t);
+  const bub = $("chartBubble");
+  if(info && bub){ bub.innerHTML = info.html; }
+  drawCrosshair(lastBubble.t);
+}
+let lastAge = 0;
+let lastRenderState = null;      // 二期：报告导出快照（render() 末尾写入）
+const BUBBLE_HIDE_MS = 2000;     // 移动端松手后气泡保留时长（t16 修复：可测常量）
+function hideBubble(){
+  lastBubble.active = false; lastBubble.locked = false; lastBubble.t = null;
+  drawCrosshair(null);
+  const b = $("chartBubble");
+  if(b){ b.classList.add("fade"); setTimeout(()=>{ if(!lastBubble.active) b.style.display="none"; }, 420); }
+}
+function bubbleTouchDown(){
+  if(lastBubble.active){ hideBubble(); return false; }   // 二次 tap：立即关闭（t16 修复）
+  lastBubble.locked = true; lastBubble.active = true;    // 首次触摸：进入拖动，指针跟随
+  return true;
+}
+function bubbleTouchUp(){
+  clearTimeout(lastBubble.hideTimer);
+  lastBubble.locked = false;                              // 先解锁（t16 修复：原逻辑锁死导致永不淡出）
+  lastBubble.hideTimer = setTimeout(hideBubble, BUBBLE_HIDE_MS);   // 松手后约 2s 自动淡出
+  return true;
+}
+function attachChartPointer(){
+  const cv = $("chart");
+  const bub = $("chartBubble");
+  const wrap = $("chartWrap");
+  if(!cv || !bub || !wrap) return;
+  function cssPos(e){
+    const r = cv.getBoundingClientRect();
+    return { cssX: e.clientX - r.left, cssY: e.clientY - r.top, px: (e.clientX - r.left)*(880/r.width), py: (e.clientY - r.top)*(400/r.height) };
+  }
+  function placeBubble(info, cssX, cssY, isTouch){
+    bub.style.display="block";
+    bub.classList.remove("fade");
+    bub.innerHTML = info.html;
+    const bw = bub.offsetWidth, bh = bub.offsetHeight;
+    const wrapW = wrap.clientWidth;
+    let left = cssX + 14;
+    if(left + bw > wrapW - 4) left = cssX - 14 - bw;          // 贴边自动翻转
+    if(left < 4) left = 4;
+    let top = isTouch ? cssY - 60 - bh : cssY + 14;            // 移动端：触点上方 ≥60px
+    if(top < 4) top = cssY + 14;
+    bub.style.left = left+"px";
+    bub.style.top = top+"px";
+  }
+  function showAt(e, isTouch){
+    const pos = cssPos(e);
+    const t = tAtPx(pos.px);
+    if(t===null) return;
+    lastBubble.active = true;
+    lastBubble.t = t; lastBubble.px = pos.px; lastBubble.py = pos.py; lastBubble.pointerType = isTouch?"touch":"mouse";
+    drawCrosshair(t);
+    placeBubble(bubbleTextAt(t), pos.cssX, pos.cssY, isTouch);
+  }
+  cv.addEventListener("pointermove", (e)=>{
+    if(e.pointerType==="touch" && !lastBubble.locked) return;   // 触摸仅拖动中跟随（t16 修复：松手后不再吸附）
+    showAt(e, e.pointerType==="touch");
+  });
+  cv.addEventListener("pointerleave", (e)=>{
+    if(e.pointerType==="mouse" && !lastBubble.locked) hideBubble();
+  });
+  cv.addEventListener("pointerdown", (e)=>{
+    if(e.pointerType!=="touch") return;
+    if(!bubbleTouchDown()) return;                              // 二次 tap：立即关闭
+    try{ cv.setPointerCapture(e.pointerId); }catch(err){}
+    showAt(e, true);
+  });
+  cv.addEventListener("pointerup", (e)=>{
+    if(e.pointerType!=="touch") return;
+    bubbleTouchUp();                                            // 先解锁再排 2s 淡出
+  });
+}
+
+/* ================= 个人风险报告导出（二期 P1，零依赖） ================= */
+const DISCLAIMER_TXT = "本报告只做风险大小的科普比较，不预测寿命、不构成任何医疗或保险建议。";
+function reportRiskItems(st){
+  const q = qAt(st.age, st.sex);
+  const items = st.res.parts.map(p=>{
+    const mm = q*(p.f-1)*1e6;
+    return {k:p.k, f:p.f, mm:mm};
+  }).filter(it=> Math.abs(it.f-1) > 0.001);
+  if(st.extra > 0) items.push({k:"额外风险", f:1+(st.extra/1e6)/q, mm:st.extra, isExtra:true});
+  items.sort((a,b)=> Math.abs(b.mm)-Math.abs(a.mm));
+  return items;
+}
+function inputLabel(v){
+  if(v===null || v===undefined) return "未填写";
+  return String(v);
+}
+function buildReport(){
+  const st = lastRenderState;
+  if(!st) return '<p>请先在第3章填写年龄与性别并完成一次计算。</p>';
+  const now = new Date();
+  const dateStr = now.getFullYear()+" 年 "+(now.getMonth()+1)+" 月 "+now.getDate()+" 日 "+
+    String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0");
+  const items = reportRiskItems(st);
+  const bgRate = qAt(st.age, st.sex)*st.res.coeff*1e6;
+  const actTxt = st.activity==="low" ? "偏少" : st.activity==="high" ? "偏多" : st.activity==="mid" ? "大致相当" : "未填写";
+  const dietCnt = st.diet ? DIET_IDS.filter(id=>st.diet[id]).length : 0;
+  const dietTxt = st.diet ? (dietCnt>=4 ? "达标（≥4 项）" : "未达标（"+dietCnt+" 项）") : "未填写";
+  const smokeTxt = st.smoke===null ? "未填写" : (st.smoke===0?"不吸烟":st.smoke+" 支/天");
+  const alcoholTxt = st.alcohol===null ? "未填写" : st.alcohol+" 克/周";
+  // 表 1 输入档案（13 项，不含姓名等个人识别信息）
+  const rows = [
+    ["年龄", st.age+" 岁"], ["性别", st.sex==="m"?"男":"女"],
+    ["BMI", inputLabel(st.bmi)], ["腰围", inputLabel(st.waist===null?null:st.waist+" cm")],
+    ["收缩压", inputLabel(st.sbp===null?null:st.sbp+" mmHg")], ["空腹血糖", inputLabel(st.glu===null?null:st.glu+" mmol/L")],
+    ["LDL 胆固醇", inputLabel(st.ldl===null?null:st.ldl+" mmol/L")], ["静息心率", inputLabel(st.hr===null?null:st.hr+" 次/分")],
+    ["睡眠时长", inputLabel(st.sleep===null?null:st.sleep+" 小时")], ["吸烟", smokeTxt],
+    ["饮酒", alcoholTxt], ["运动", actTxt], ["饮食", dietTxt]
+  ];
+  let t1 = '<table><tbody>'+rows.map(r=>'<tr><th style="width:40%;">'+r[0]+'</th><td>'+esc(r[1])+'</td></tr>').join('')+'</tbody></table>';
+  // 表 2 核心结果
+  let t2rows = st.marks.map(m=>{
+    const b = st.base.find(d=>d.t===m) || st.base[st.base.length-1];
+    const a = st.adj ? (st.adj.find(d=>d.t===m)||null) : null;
+    const bb = st.band ? st.band[m] : null;
+    const baseTxt = bb ? fmt(bb.p50*100,2)+"%（25–75%："+fmt(bb.p25*100,2)+"%–"+fmt(bb.p75*100,2)+"%；2.5–97.5%："+fmt(bb.p025*100,2)+"%–"+fmt(bb.p975*100,2)+"%）" : "约 "+fmt(b.s*100,2)+"%";
+    const adjTxt = a ? "约 "+fmt(a.s*100,2)+"%" : "—";
+    return '<tr><td>未来 '+m+' '+(st.mode==="month"?"月":"年")+'</td><td>'+baseTxt+'</td><td>'+adjTxt+'</td></tr>';
+  }).join('');
+  const t2 = '<table><thead><tr><th>时间</th><th>基础（生命表×系数；蒙特卡洛中位数 + 25–75% + 2.5–97.5%）</th><th>叠加额外风险后</th></tr></thead><tbody>'+t2rows+'</tbody></table>';
+  // 表 3 风险构成卡
+  let t3rows = items.length ? items.map(it=>{
+    return '<tr><td>'+esc(it.k)+(it.isExtra?'（主动叠加）':'')+'</td><td>×'+fmt(it.f,3)+'</td><td>'+fmt(it.mm,0)+'</td></tr>';
+  }).join('') : '<tr><td colspan="3">未填写任何偏离平均的健康指标，也未添加事件。</td></tr>';
+  const t3 = '<table><thead><tr><th>因素</th><th>系数</th><th>等效额外微死亡/年（负值=健康红利）</th></tr></thead><tbody>'+t3rows+'</tbody></table>';
+  // 表 4 事件叠加清单
+  const evRows = eventList.filter(e=>e.kind!=="coef");
+  let t4rows;
+  if(evRows.length===0){ t4rows='<tr><td colspan="2">未添加事件</td></tr>'; }
+  else {
+    const sum = evRows.reduce((a,e)=>a+e.perYearMicromort,0);
+    t4rows = evRows.map(e=>'<tr><td>'+esc(e.name)+'</td><td>'+fmt(e.perYearMicromort,0)+' 微死亡/年</td></tr>').join('')+
+      '<tr><td><b>合计</b></td><td><b>'+fmt(sum,0)+' 微死亡/年</b></td></tr>';
+  }
+  const t4 = '<table><thead><tr><th>已添加事件</th><th>每年微死亡</th></tr></thead><tbody>'+t4rows+'</tbody></table>';
+  // 方法与局限（页脚 4 条全文）+ 本报告引用条目
+  const footEl = $("footNote");
+  const footTxt = footEl ? footEl.innerHTML : "";
+  let refsHtml = "";
+  evRows.forEach(e=>{
+    const cat = catalogOf(e.name);
+    if(cat) refsHtml += '<li>'+esc(cat.n)+'：'+esc(cat.s)+'（'+esc(cat.y)+'，信度 '+cat.r+'）</li>';
+  });
+  const curveImg = (()=>{ try{ const c=$("chart"); return c && c.width>0 ? '<img src="'+c.toDataURL("image/png")+'" alt="存活曲线" style="max-width:100%;">' : ""; }catch(err){ return ""; } })();
+  return '<div class="report-head"><span>与死神的账本 · 个人风险报告（v2.0）</span><span>生成时间：'+dateStr+'</span></div>'+
+    '<h1>个人风险报告</h1>'+
+    '<p class="disc">'+DISCLAIMER_TXT+'</p>'+
+    '<h2>一、输入档案</h2>'+t1+
+    '<h2>二、核心结果</h2>'+
+    '<p>当前年龄背景年死亡风险基线约 <b>'+fmt(bgRate,0)+'</b> 微死亡/年（生命表 CL4 2025 × 综合状态系数）；你的综合状态系数 <b>×'+fmt(st.res.coeff,2)+'</b>（生活方式簇 ×'+fmt(st.res.lifestyle,2)+' × 代谢簇 ×'+fmt(st.res.metabolic,2)+'）。</p>'+
+    '<p class="fig">图 1　存活曲线（蓝带为中位线与置信区间）</p>'+curveImg+
+    '<p class="fig">表 2　核心结果（随年龄上限自适应）</p>'+t2+
+    '<h2>三、风险构成卡</h2>'+'<p class="fig">表 3　风险构成卡（等效额外微死亡降序）</p>'+t3+
+    '<h2>四、事件叠加清单</h2>'+'<p class="fig">表 4　事件叠加清单（事件默认仅作对比、不叠加曲线；仅勾选「计入曲线」的才计入存活率）</p>'+t4+
+    '<h2>五、方法与局限（页脚全文）</h2>'+footTxt+
+    (refsHtml ? '<h2>六、本报告引用的事件条目著录（GB/T 7714 格式）</h2><ol>'+refsHtml+'</ol>' : '')+
+    '<div class="report-foot"><span>与死神的账本 · 仅本机生成，不上传不联网</span></div>'+
+    '<p class="disc">'+DISCLAIMER_TXT+'</p>';
+}
+function buildTextSummary(){
+  const st = lastRenderState;
+  if(!st) return "请先在第3章完成一次计算。";
+  const now = new Date();
+  const dateStr = now.getFullYear()+"年"+(now.getMonth()+1)+"月"+now.getDate()+"日";
+  const bgRate = qAt(st.age, st.sex)*st.res.coeff*1e6;
+  const markTxt = st.marks.map(m=>{
+    const bb = st.band ? st.band[m] : null;
+    const b = st.base.find(d=>d.t===m) || st.base[st.base.length-1];
+    const mid = bb ? fmt(bb.p50*100,2) : fmt(b.s*100,2);
+    const iqr = bb ? "（25–75%："+fmt(bb.p25*100,2)+"%–"+fmt(bb.p75*100,2)+"%）" : "";
+    return m+(st.mode==="month"?"月":"年")+" "+mid+"%"+iqr;
+  }).join("；");
+  const evRows = eventList.filter(e=>e.kind!=="coef");
+  const parts = [];
+  if(st.extra) parts.push("额外风险输入框 "+fmt(st.extra,0)+" 微死亡/年");
+  evRows.forEach(e=>parts.push(e.name+" "+fmt(e.perYearMicromort,0)+" 微死亡/年"+(includeEvents?"（已叠加）":"（仅对比）")));
+  const extraTxt = parts.length ? parts.join("、") : "无";
+  return "《与死神的账本》个人风险报告（"+dateStr+"）：年龄 "+st.age+" 岁，背景基线 "+fmt(bgRate,0)+" 微死亡/年；你的综合状态系数 ×"+fmt(st.res.coeff,2)+"；未来 "+markTxt+"；已计入额外风险："+extraTxt+"。报告仅作科普比较，不预测寿命、不构成医疗或保险建议。";
+}
+function fallbackCopy(text){
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position="fixed"; ta.style.opacity="0";
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try{ ok = document.execCommand("copy"); }catch(err){ ok = false; }
+  document.body.removeChild(ta);
+  return ok;
+}
+
+/* ================= 年限自适应（不超过生命表上限 105 岁） ================= */
+function yearMarks(age){
+  const cap = 105 - age;   // 最多还能看多少年（到 105 岁）
+  if(cap >= 30) return [10,20,30];
+  const marks = [];
+  if(cap >= 10) marks.push(10);
+  if(cap >= 20) marks.push(20);
+  if(cap > 0 && !marks.includes(cap)) marks.push(cap);
+  return marks;
+}
+function monthMarks(age){
+  // 1.0.0：月模式数字卡/报告表 2 按「到 105 岁还有多少个月」自适应，避免高龄时 24/36 月取不到数据导致三卡同值。
+  const capMonths = (105 - age) * 12;
+  const marks = [];
+  [12,24,36].forEach(m=>{ if(m <= capMonths) marks.push(m); });
+  if(marks.length===0 && capMonths>0) marks.push(capMonths);
+  return marks;
+}
+
+/* ================= 输入约束（数值限制在数据支持范围内） ================= */
+function clampInput(el){
+  const v = parseFloat(el.value);
+  if(isNaN(v)) return;
+  const min = el.min!=='' ? parseFloat(el.min) : -Infinity;
+  const max = el.max!=='' ? parseFloat(el.max) : Infinity;
+  if(v < min) el.value = String(min);
+  else if(v > max) el.value = String(max);
+}
+function fieldVal(id){
+  // 读取时用 clamp 后的值参与计算，但不改动输入框（避免打断逐字符输入）
+  const el = $(id);
+  const v = parseFloat(el.value);
+  if(isNaN(v)) return null;
+  const min = el.min!=='' ? parseFloat(el.min) : null;
+  const max = el.max!=='' ? parseFloat(el.max) : null;
+  if(min!==null && v < min) return min;
+  if(max!==null && v > max) return max;
+  return v;
+}
+function updateWaistBounds(){
+  const sex = getSex();
+  const w = $("waist");
+  if(sex==="m"){ w.min="70"; w.max="110"; }
+  else if(sex==="f"){ w.min="60"; w.max="100"; }
+  else { w.min="60"; w.max="110"; }
+  if(w.value!=='') clampInput(w);
+}
+
+/* ================= 主渲染 ================= */
+function render(){
+  updateEvBase();
+  const age = fieldVal("age");
+  const sex = getSex();
+  if(age===null || age<0 || age>100 || (sex!=="m" && sex!=="f")){
+    $("nums").innerHTML="";
+    $("warnings").innerHTML='<div class="note">三步开始：① 填 <b>年龄</b>与<b>性别</b>（带 * 的必填项）② 选填 9 个健康指标 ③ 查看风险如何随年龄累积。</div>';
+    lastSeries = null;
+    const cv=$("chart"); if(cv){ cv.getContext("2d").clearRect(0,0,cv.width,cv.height); }
+    const co=$("chartOverlay"); if(co){ co.getContext("2d").clearRect(0,0,co.width,co.height); }
+    clearLifespan();
+    lastRenderState = null;
+    $("ageWarn").classList.remove("show");
+    return;
+  }
+  const ageI = Math.round(age);
+  $("ageWarn").classList.toggle("show", ageI < 18);
+  const bmi=fieldVal("bmi"), waist=fieldVal("waist"), sbp=fieldVal("sbp"),
+        glu=fieldVal("glu"), ldl=fieldVal("ldl"), hr=fieldVal("hr"), sleep=fieldVal("sleep"),
+        alcohol=fieldVal("alcohol"), smoke=fieldVal("smoke");
+  const activity = getActivity();
+  const diet = getDiet();
+
+  const res = computeCoefficients(ageI, sex, bmi, waist, sbp, glu, ldl, hr, sleep, alcohol, smoke, activity, diet);
+  const extra = extraPerYear();
+  // 自定义查询
+  const capYears = 105 - ageI;
+  $("queryN").max = mode==="month" ? capYears*12 : capYears;
+  $("queryUnit").textContent = mode==="month" ? "月" : "年";
+  const queryN = Math.floor(fieldVal("queryN")||0);
+  const maxMonths = Math.min(Math.max(36, queryN), capYears*12);
+  const base = computeSurvival(ageI, sex, res.coeff, 0, mode, maxMonths);
+  const adj  = (extra>0) ? computeSurvival(ageI, sex, res.coeff, extra, mode, maxMonths) : null;
+
+  // 背景风险（微死亡/年）= q(age)*coeff*1e6
+  const bgRate = qAt(ageI, sex)*res.coeff*1e6;
+  lastBgRate = bgRate;
+  $("extraRef").innerHTML = "参照：你的年背景风险约 <b>"+fmt(bgRate,0)+"</b> 微死亡/年。"+
+    (res.coeff>1.001 || res.coeff<0.999
+      ? " 综合状态系数 ×"+fmt(res.coeff,2)+"（生活方式簇 ×"+fmt(res.lifestyle,2)+" × 代谢簇 ×"+fmt(res.metabolic,2)+"）。"
+      : " 未填选填项，按人群平均（综合系数 1）。");
+
+  // 蒙特卡洛置信区间：只反映「状态系数估计的不确定」。extra（额外微死亡）是确定输入，不参与抽样，故用 extra=0 配「基础」曲线。
+  let band = null;
+  if(res.parts.length > 0){
+    band = monteCarloBand(ageI, sex, res, 0, mode, maxMonths, 1000,
+      JSON.stringify([ageI, sex, res.lifeFactors, res.metFactors, res.indepFactors, res.bodyF, tau, mode, maxMonths]));   // ⑪ 缓存键=因子指纹+τ+模式
+  }
+
+  // 数字卡（年限随年龄自适应）
+  const marks = mode==="month" ? monthMarks(ageI) : yearMarks(ageI);
+  let html = "";
+  marks.forEach(m=>{
+    const b = base.find(d=>d.t===m) || base[base.length-1];
+    const a = adj ? (adj.find(d=>d.t===m)||adj[adj.length-1]) : null;
+    const bPct = (b.s*100);
+    const aPct = a ? (a.s*100) : null;
+    const diff = a ? (b.s - a.s)*100 : 0;
+    const lbl = mode==="month" ? m+" 月" : m+" 年";
+    const capTag = (mode==="year" && m === 105 - ageI) ? '<span class="badge" style="margin-left:4px;background:var(--acc-soft);color:var(--acc)">至105岁上限</span>' : '';
+    // 基础：中位数 + 95% 置信区间（若有 band）
+    let bTxt;
+    if(band && band[m]){
+      const bb = band[m];
+      bTxt = fmt(bb.p50*100,2)+'%<small> 基础（区间 '+fmt(bb.p025*100,2)+'%–'+fmt(bb.p975*100,2)+'%）</small>';
+    } else {
+      bTxt = '约 '+fmt(bPct,2)+'%<small> 基础</small>';
+    }
+    html += '<div class="num"><div class="k">未来 '+lbl+' 存活率'+capTag+'</div>'+
+      '<div class="v">'+bTxt+'</div>'+
+      (a ? '<div class="k">叠加后约 '+fmt(aPct,2)+'%（较基础低 '+fmt(diff,3)+' 个百分点）</div>' : '')+
+      '</div>';
+  });
+  $("nums").innerHTML = html;
+
+  // 自定义查询结果
+  let qr = "—";
+  if(queryN > 0){
+    const bq = base.find(d=>d.t===queryN) || base[base.length-1];
+    const aq = adj ? (adj.find(d=>d.t===queryN)||adj[adj.length-1]) : null;
+    let qBase = '约 '+fmt(bq.s*100,2)+'%';
+    if(band && band[queryN]){ const bb=band[queryN]; qBase = fmt(bb.p50*100,2)+'%（区间 '+fmt(bb.p025*100,2)+'%–'+fmt(bb.p975*100,2)+'%）'; }
+    qr = '未来 '+queryN+' '+(mode==="month"?"月":"年")+'：基础 '+qBase+(aq? '，叠加后约 '+fmt(aq.s*100,2)+'%' : '');
+  }
+  $("queryResult").textContent = qr;
+
+  // 提示
+  let whtml = "";
+  // 综合系数较高提示：代谢簇已饱和封顶，但生活方式簇极端组合仍是近似外推
+  if(res.coeff >= 3){
+    whtml += '<div class="warn">你的综合状态系数已达 <b>'+fmt(res.coeff,1)+'</b> 倍，属极端多因素组合。代谢簇已按实测上界（1.92 倍）饱和封顶，但生活方式簇在极端输入下仍是近似外推，此量级仅供参考、不宜当作精确预测。</div>';
+  }
+  // 提前归零检测：极端组合致高龄存活率被 clampQ 封顶为 0
+  const zeroT = base.findIndex((d,i)=> i>0 && d.s < 0.0001);
+  if(zeroT > 0 && (ageI + zeroT) < 105){
+    whtml += '<div class="warn">你的综合风险在 '+(ageI+zeroT)+' 岁前已把存活率压到接近 0%（极端多因素组合超出研究支持范围，属模型外推，仅供参考）。</div>';
+  }
+  res.warn.forEach(t=>{ whtml += '<div class="warn">'+t+'</div>'; });
+  res.note.forEach(t=>{ whtml += '<div class="note">'+t+'</div>'; });
+
+  // 蒙特卡洛置信区间的诚实标注（band 已在数字卡前计算）
+  if(band){
+    whtml += '<div class="note" style="color:#6b6b6b;font-size:12px;">置信区间（蓝带）来自对各状态系数估计不确定性的 1000 次蒙特卡洛抽样，其中饱和封顶值 CAP 已按 Li 2016 成分数 HR 的置信区间参与抽样；τ、分簇结构、因素相关性与比例风险假设未纳入，实际不确定仍可能比蓝带更宽（蓝带偏窄）。</div>';
+  }
+
+  $("warnings").innerHTML = whtml;
+
+  draw({base, adj, band});
+  lastAge = ageI;
+  lastRenderState = { age: ageI, sex, bmi, waist, sbp, glu, ldl, hr, sleep, alcohol, smoke, activity, diet, res, extra, base, adj, band, marks, queryN, mode };
+  refreshBubble();               // 二期：重绘后气泡若仍悬停，即时刷新（数据与数字卡同源）
+  refreshCoefEntries();
+  renderEvents();
+  renderRiskProfile(ageI, sex, res);
+  renderLifespan(ageI, sex, res, extra);
+}
+
+/* ================= 风险构成要素 + 相对平均水平 ================= */
+function renderRiskProfile(ageI, sex, res){
+  const box = $("riskProfile");
+  if(!box) return;
+  const q = qAt(ageI, sex);
+  // 额外风险（加算）：额外风险输入框 + 风险换算里添加的事件，统一折算成等效系数（1 + extra/q/1e6），和健康因素同形式列出
+  const extraVal = extraPerYear();
+  // 每个已填系数的等效额外微死亡/年 = q × (f-1) × 1e6；过滤掉 f≈1（=平均）的项
+  const items = res.parts.map(p=>{
+    const mm = q*(p.f-1)*1e6;
+    return {k:p.k, f:p.f, mm:mm};
+  }).filter(it=> Math.abs(it.f - 1) > 0.001);
+  // 额外风险项（有填才加）：微死亡=extra，等效系数=1+extra/q/1e6，恒为正值（主动承担）
+  if(extraVal > 0){
+    const eqF = 1 + (extraVal/1e6)/q;
+    items.push({k:"额外风险", f:eqF, mm:extraVal, isExtra:true});
+  }
+  items.sort((a,b)=> Math.abs(b.mm) - Math.abs(a.mm));
+  // 净偏移 = 所有项微死亡的总和（健康偏移 + 额外风险），供小趣闻换算
+  funFactNetMM = items.reduce((a,b)=>a+b.mm,0);
+
+  if(items.length === 0){
+    box.innerHTML = "";
+    return;
+  }
+
+  const mult = res.coeff;
+
+  let html = '<div class="card" style="margin-top:14px;">';
+  html += '<h2>风险构成 · 相对平均水平</h2>';
+  html += '<p class="src" style="margin-top:0;">你的综合状态风险约为同龄平均人的 <b>'+fmt(mult,2)+' 倍</b>（'+
+    (mult>=1?'高于':'低于')+'平均）。下面按「每年额外承担的微死亡」降序，列出各因素的贡献；负值为健康红利（比平均少承担）。</p>';
+  // 小趣闻（换算）：只在「多承担」方向显示（净偏移 > 0），用「1 微死亡 = ¥X」把你多承担的部分折成钱。
+  // 少承担（健康红利）不显示——健康的收益主要在多活、少病，用「死亡赔偿」的钱衡量反而显得微不足道。
+  if(funFactNetMM > 0){
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:8px 0;padding:8px 12px;background:var(--acc-soft);border-left:3px solid var(--acc);border-radius:6px;">'+
+      '<span id="funFact" style="flex:1;min-width:220px;font-size:13px;">🎲 换算中…</span>'+
+      '<button type="button" id="funFactRefresh" class="btn btn-sm" style="color:var(--acc);flex-shrink:0;">换一条</button>'+
+      '</div>';
+  }
+  if(mult < 1){
+    html += '<p class="note" style="margin-top:6px;font-size:12px;">提示：「比平均更健康」（系数小于 1）方向的可信度低于「更高危」方向——全因死亡中相当一部分（基因、意外、感染等）无法通过生活方式消除，健康红利可能被高估。</p>';
+  }
+  html += '<div style="display:flex;flex-direction:column;gap:8px;">';
+  items.forEach(it=>{
+    const abs = Math.abs(it.mm);
+    const pct = items.length ? abs / items.reduce((a,b)=>a+Math.abs(b.mm),0) * 100 : 0;
+    const isNeg = it.mm < 0;
+    const color = isNeg ? "var(--ok)" : "var(--danger)";
+    const barColor = isNeg ? "rgba(15,110,86,0.25)" : "rgba(163,45,45,0.25)";
+    const sign = isNeg ? "−" : "+";
+    const yuan = it.mm > 0 ? yuanText(it.mm) : '';
+    html += '<div style="display:flex;align-items:center;gap:8px;font-size:13px;">'+
+      '<span style="width:60px;flex-shrink:0;color:var(--ink);">'+esc(it.k)+'</span>'+
+      '<div style="flex:1;height:14px;background:var(--bg);border-radius:7px;overflow:hidden;position:relative;">'+
+        '<div style="height:100%;background:'+barColor+';width:'+fmt(Math.min(100,pct),0)+'%;border-radius:7px;"></div>'+
+      '</div>'+
+      '<span class="risk-val" style="width:130px;flex-shrink:0;text-align:right;color:'+color+';font-weight:600;">'+sign+' '+fmt(abs,0)+' 微死亡/年</span>'+
+      '<span style="width:52px;flex-shrink:0;text-align:right;color:var(--mut);">×'+fmt(it.f,2)+'</span>'+
+      '</div>'+
+      (yuan ? '<div style="margin:-2px 0 4px 68px;font-size:11px;color:var(--mut);">'+esc(yuan)+'</div>' : '');
+  });
+  html += '</div>';
+  html += '<p class="src" style="margin-bottom:0;">注：综合风险按「生活方式簇 × 代谢簇」计算（代谢簇危险方向已按 Li 2016 实测上界 1.92 倍做饱和封顶，不再独立相乘高估）；本卡片各因素按「相对平均」折算，供横向对比。额外风险（加算）已折成等效系数与健康因素并列。每个系数的来源与局限见上方提示。</p>';
+  html += '</div>';
+  box.innerHTML = html;
+  // 小趣闻卡片是动态生成的，生成后立即抽一条；「换一条」用事件委托（挂 riskProfile 容器）
+  renderFunFact();
+}
+
+/* ================= 风险换算 ================= */
+function parseSelection(raw){
+  const parts = raw.split("|");
+  if(parts[0]==="c"){ return {kind:"coef", idx:parseInt(parts[1],10)}; }
+  return {kind:"event", name:parts[0], mm:parseFloat(parts[1]), unit:parts[2], defQty:parts[3]!==undefined?parseFloat(parts[3]):1};
+}
+// 把输入水平值/数量 clamp 到有效范围（不依赖 blur 事件的 clampInput 兜底）
+function clampQty(sel, qty){
+  if(isNaN(qty)) return NaN;
+  if(sel.kind==="coef"){
+    const c = COEF_FACTORS[sel.idx];
+    if(c.min!==undefined) qty = Math.max(c.min, qty);
+    if(c.max!==undefined) qty = Math.min(c.max, qty);
+  } else {
+    qty = Math.max(0, qty);
+  }
+  return qty;
+}
+const EQ_POOL = [
+  {name:"登珠峰", mm:37932, unit:"次"},
+  {name:"缉毒警察", mm:4750, unit:"年"},
+  {name:"远洋渔民", mm:2140, unit:"年"},
+  {name:"剖腹产", mm:170, unit:"次"},
+  {name:"消防员", mm:165, unit:"年"},
+  {name:"二手烟暴露", mm:135, unit:"年"},
+  {name:"顺产", mm:120, unit:"次"},
+  {name:"长途货运司机", mm:110, unit:"年"},
+  {name:"建筑高空作业", mm:90, unit:"年"},
+  {name:"住院", mm:75, unit:"夜"},
+  {name:"外卖骑手", mm:65, unit:"年"},
+  {name:"全身麻醉", mm:10, unit:"次"},
+  {name:"跳伞", mm:8, unit:"次"},
+  {name:"马拉松", mm:7, unit:"次"},
+  {name:"攀岩", mm:3, unit:"次"},
+  // 低风险参照（中国官方口径，仅作参照不进事件表，因单位「公里」下单次值<1微死亡、不适合当「高危事件」添加）
+  {name:"乘飞机(1200km)", mm:0.016, unit:"次"},
+  {name:"乘火车(1000km)", mm:0.015, unit:"次"},
+];
+let eqRefs = [];
+function pickEqRefs(){
+  const pool = EQ_POOL.slice();
+  eqRefs = [];
+  for(let i=0;i<2 && pool.length;i++){
+    const j = Math.floor(Math.random()*pool.length);
+    eqRefs.push(pool.splice(j,1)[0]);
+  }
+}
+function ratioText(mm, ref){
+  const r = mm/ref.mm;
+  if(r>=100) return "≈ "+ref.name+" "+fmt(r,0)+" "+ref.unit;
+  if(r>=1) return "≈ "+ref.name+" "+fmt(r,1)+" "+ref.unit;
+  if(r>=0.01) return "≈ "+ref.name+" "+fmt(r,2)+" "+ref.unit;
+  return "≈ "+ref.name+" 1/"+fmt(1/r,0);
+}
+function bgText(mm){
+  if(!baseValid() || !lastBgRate) return "";   // 无含状态系数的背景风险时不显示，避免用不含系数的近似值兜底
+  const bgMM = lastBgRate;
+  const years = mm/bgMM;
+  if(years >= 1) return "≈ 你 "+fmt(years,1)+" 年的背景死亡风险";
+  const days = years*365;
+  if(days >= 1) return "≈ 你 "+fmt(days,0)+" 天的背景死亡风险";
+  return "≈ 你 "+fmt(days*24,0)+" 小时的背景死亡风险";
+}
+function eqText(mm, excludeName){
+  if(mm<=0) return "";
+  if(eqRefs.length===0) pickEqRefs();
+  const parts = [bgText(mm)];
+  eqRefs.forEach(r=>{
+    if(r.name===excludeName) return;
+    parts.push(ratioText(mm, r));
+  });
+  return parts.join(" · ");
+}
+function renderEventSelect(){
+  const sel = $("evSelect");
+  let html = '<optgroup label="状态（生活方式，乘算）">';
+  COEF_FACTORS.forEach((c,i)=>{ html += '<option value="c|'+i+'">'+c.name+'</option>'; });
+  html += '</optgroup>';
+  EVENTS.forEach(g=>{
+    html += '<optgroup label="'+g.cat+'（事件，加算）">';
+    g.items.forEach(it=>{
+      const defQty = it[3]!==undefined ? it[3] : 1;
+      const rg = EV_RANGE[it[0]];   // ⑤ D 级量级区间
+      const yr = EV_YEAR[it[0]];    // ⑦ 数据年份
+      const mmTxt = rg ? '≈'+it[1]+'（'+rg[0]+'–'+rg[1]+'）' : it[1];
+      const yrTxt = yr ? '（数据年：'+yr+'）' : '';
+      html += '<option value="'+it[0]+'|'+it[1]+'|'+it[2]+'|'+defQty+'">'+it[0]+'（'+mmTxt+' 微死亡/'+it[2]+'）['+relLevel(it[0])+']'+yrTxt+'</option>';
+    });
+    html += '</optgroup>';
+  });
+  sel.innerHTML = html;
+  updateEvInput();
+}
+function updateEvInput(){
+  const sel = parseSelection($("evSelect").value);
+  const lbl = $("evQtyLabel"), inp = $("evQty");
+  if(sel.kind==="coef"){
+    const c = COEF_FACTORS[sel.idx];
+    lbl.textContent = "水平值（"+c.unit+"）";
+    inp.disabled = false;
+    inp.value = c.def;
+    inp.step = "any";
+    if(c.min!==undefined) inp.min = c.min; else inp.removeAttribute("min");
+    if(c.max!==undefined) inp.max = c.max; else inp.removeAttribute("max");
+  } else {
+    if(sel.unit==="年"){
+      // 1.0.0：「年」单位事件表示「从事该职业/长期暴露」，无数量概念——禁用数量输入，避免改了没反应。
+      lbl.textContent = "数量（无需填写）";
+      inp.disabled = true;
+      inp.value = "";
+    } else {
+      lbl.textContent = "每年数量（"+sel.unit+"）";
+      inp.disabled = false;
+      inp.value = sel.defQty;
+    }
+    inp.step = "any";
+    inp.min = "0"; inp.removeAttribute("max");
+  }
+  evPreview();
+}
+function coefMM(c, v){
+  if(!baseValid()) return 0;
+  const age = Math.round(fieldVal("age"));
+  const sex = getSex();
+  const f = c.f(v, sex) / anchorDivisor(c.name, sex, age);
+  return qAt(age, sex)*(f-1)*1e6;   // f<1 时为负（健康红利，比平均少承担）
+}
+const B1_MSG = "先在「个人状态」填写年龄与性别，再看等效微死亡（状态对比值依赖基础风险）。";
+const B3_MSG = "未填年龄/性别";
+function updateEvBase(){
+  const el = $("evBase");
+  if(!baseValid()){ el.textContent = B3_MSG; return; }
+  el.textContent = Math.round(fieldVal("age"))+" 岁 · "+(getSex()==="m"?"男":"女");
+}
+function refreshCoefEntries(){
+  eventList.forEach(e=>{
+    if(e.kind==="coef"){ e.perYearMicromort = coefMM(COEF_FACTORS[e.coefIdx], e.value); }
+  });
+}
+function evPreview(){
+  const raw = $("evSelect").value;
+  if(!raw){ $("evPreview").innerHTML="—"; return; }
+  const sel = parseSelection(raw);
+  const qty = clampQty(sel, parseFloat($("evQty").value)||0);
+  if(sel.kind==="coef"){
+    if(!baseValid()){ $("evPreview").innerHTML = B1_MSG; return; }
+    const c = COEF_FACTORS[sel.idx];
+    const mm = coefMM(c, qty);
+    const mmTxt = mm>=0
+      ? "等效每年 <b>"+fmt(mm,0)+"</b> 微死亡"+(eqText(mm,c.name)?"（"+eqText(mm,c.name)+"）":"")
+      : "比平均每年 <b>少 "+fmt(-mm,0)+"</b> 微死亡";
+    $("evPreview").innerHTML = c.name+" "+qty+" "+c.unit+" → "+mmTxt+"。此为对比值，不叠加曲线。";
+  } else {
+    const src = eventSrc(sel.name);
+    const rg = EV_RANGE[sel.name];   // ⑤
+    const yr = EV_YEAR[sel.name];    // ⑦
+    const rangeTxt = (sel.name==="长途货运司机")
+      ? '⚠️ 来源分歧 10–50 倍，仅量级参考（不设精确区间）。'
+      : (rg ? '量级区间 '+rg[0]+'–'+rg[1]+' 微死亡/年，曲线按量级区间中值计入。' : '');
+    const srcTxt = src ? '<div class="src" style="margin-top:4px;">来源：'+src+(yr?'（数据年：'+yr+'）':'')+'（信度 '+relLevel(sel.name)+'）</div>' : '';
+    if(sel.unit==="年"){
+      const mmTxt = rg ? '≈'+fmt(sel.mm,0)+'（'+rg[0]+'–'+rg[1]+'）' : fmt(sel.mm,0);
+      $("evPreview").innerHTML = '从事该职业/暴露 → 每年 '+mmTxt+' 微死亡'+(includeEvents?'（计入曲线）':'（对比，不叠加）')+'。'+rangeTxt+srcTxt;
+    } else {
+      const perYear = sel.mm*qty;
+      $("evPreview").innerHTML = '每年 '+fmt(qty,0)+' '+sel.unit+' × '+sel.mm+' 微死亡 = 每年 <b>'+fmt(perYear,0)+'</b> 微死亡'+(includeEvents?'（计入曲线）':'（对比，不叠加）')+(eqText(perYear,sel.name)?"，"+eqText(perYear,sel.name):"")+"。"+srcTxt+(yr?'<div class="src">数据年：'+yr+'。</div>':'');
+    }
+  }
+}
+function addEvent(){
+  const raw = $("evSelect").value;
+  if(!raw) return;
+  const sel = parseSelection(raw);
+  const qty = (sel.kind==="event" && sel.unit==="年") ? 1 : clampQty(sel, parseFloat($("evQty").value));
+  if(isNaN(qty)) return;
+  let entry;
+  if(sel.kind==="coef"){
+    if(!baseValid()){ $("evPreview").innerHTML = B1_MSG; return; }
+    const c = COEF_FACTORS[sel.idx];
+    const mm = coefMM(c, qty);
+    if(isNaN(mm) || mm===0) return;
+    entry = {kind:"coef", name:c.name, coefIdx:sel.idx, value:qty, unit:c.unit, perYearMicromort:mm};
+  } else {
+    const perYear = (sel.unit==="年") ? sel.mm : sel.mm*qty;
+    if(perYear<=0) return;
+    entry = {kind:"event", name:sel.name, value:qty, unit:sel.unit, perYearMicromort:perYear};
+  }
+  eventList.push(entry);
+  saveState();
+  renderEvents();
+  render();
+}
+function removeEvent(i){ eventList.splice(i,1); saveState(); renderEvents(); render(); }
+function renderEvents(){
+  const total = eventTotalDisplay();
+  $("evTotal").textContent = "事件累计 "+fmt(total,0)+" 微死亡/年"+(includeEvents?"（已叠加）":"（仅对比）");
+  const box = $("evList");
+  if(eventList.length===0){ box.innerHTML='<div class="hint" style="color:var(--mut);">还没有记录。</div>'; return; }
+  const order = eventList.map((e,i)=>i).sort((a,b)=>eventList[b].perYearMicromort-eventList[a].perYearMicromort);
+  let html="";
+  order.forEach(i=>{
+    const e = eventList[i];
+    const tag = e.kind==="coef"
+      ? '<span class="badge" style="color:var(--ok);background:#E6F4EE;">状态·对比</span>'
+      : '<span class="badge">'+(includeEvents?'事件·已叠加':'事件·对比')+'</span>';
+    const relTag = e.kind==="event" ? '<span class="rel rel-'+relLevel(e.name)+'" title="信度：'+REL_TXT[relLevel(e.name)]+'。来源：'+eventSrc(e.name)+'">'+relLevel(e.name)+'</span>' : '';
+    const rg = e.kind==="event" ? EV_RANGE[e.name] : null;   // ⑤
+    const yr = e.kind==="event" ? EV_YEAR[e.name] : null;    // ⑦
+    const neg = e.perYearMicromort < 0;
+    const mmStr = neg ? ('比平均少 <b>'+fmt(-e.perYearMicromort,0)+'</b> 微死亡/年')
+      : (rg ? '<span title="量级区间 '+rg[0]+'–'+rg[1]+' 微死亡/年（曲线按量级区间中值计入）">≈<b>'+fmt(e.perYearMicromort,0)+'</b>（'+rg[0]+'–'+rg[1]+'）</span> 微死亡/年'
+            : '<b>'+fmt(e.perYearMicromort,0)+'</b> 微死亡/年');
+    const yrTag = yr ? '<span style="font-size:11px;color:var(--mut);">（数据年：'+yr+'）</span>' : '';
+    const extraNote = (e.name==="长途货运司机") ? '<br><span style="font-size:11px;color:#A32D2D;">⚠️ 来源分歧 10–50 倍，仅量级参考（不设精确区间）。</span>' : '';
+    const eq = neg ? '' : eqText(e.perYearMicromort, e.name);
+    const yuan = neg ? '' : yuanText(e.perYearMicromort);
+    const cat = (e.kind==="event") ? catalogOf(e.name) : null;
+    const qtyUnit = (e.unit && e.unit!=="年") ? (' '+fmt(e.value,0)+' '+e.unit) : '';
+    html += '<div class="event-list-item"'+(cat?' title="点击展开完整著录（9 字段）"':'')+'><span>'+esc(e.name)+qtyUnit+' · '+mmStr+' '+tag+relTag+' '+yrTag+
+      (eq?'<br><span style="font-size:12px;color:var(--mut);">'+eq+'</span>':'')+
+      (yuan?'<br><span style="font-size:11px;color:#0F6E56;">'+esc(yuan)+'</span>':'')+
+      extraNote+
+      '</span><span class="x" data-idx="'+i+'">×</span></div>';
+    if(cat){ html += louMarkup(cat); }
+  });
+  box.innerHTML = html;
+}
+
+/* 出版级著录（9 字段）展开表：名称 / 数值 / 单位口径 / 换算计算式 / 来源 / 数据年份 / 样本与口径 / 局限 / 信度+审定状态 */
+function louMarkup(cat){
+  return '<div class="lou" style="display:none;">'+
+    '<table><tbody>'+
+    '<tr><th>名称</th><td>'+esc(cat.n)+'</td></tr>'+
+    '<tr><th>数值或区间</th><td>'+esc(cat.v)+' 微死亡</td></tr>'+
+    '<tr><th>单位口径</th><td>'+esc(cat.u)+'</td></tr>'+
+    '<tr><th>换算计算式</th><td>'+esc(cat.c)+'</td></tr>'+
+    '<tr><th>来源机构与文献</th><td>'+esc(cat.s)+'</td></tr>'+
+    '<tr><th>数据年份</th><td>'+esc(cat.y)+'</td></tr>'+
+    '<tr><th>样本与口径</th><td>'+esc(cat.p)+'</td></tr>'+
+    '<tr><th>局限</th><td>'+esc(cat.l)+'</td></tr>'+
+    '<tr><th>信度与审定状态</th><td><span class="rel rel-'+cat.r+'">'+cat.r+'</span>　'+(cat.r==="A"?"官方统计":cat.r==="B"?"行业协会 / 专业机构":cat.r==="C"?"学术研究 / 数据库":"自媒体 · 转引（仅量级参考）")+'　作者自校 · 多轮独立评审</td></tr>'+
+    '</tbody></table></div>';
+}
+
+/* ================= 价值 + 经济化 ================= */
+/* ================= VSL 数据（有明确年份、可跨期折算的 24 篇） ================= */
+/* 跨期折算（基准 2025）：市场行为（工资补偿）按城镇居民人均可支配收入、弹性 ε=1；个人意愿（问卷）按 CPI（购买力）。 */
+const VSL = [
+  { type:"市场行为（工资补偿）", fields:[
+    { name:"职业 / 劳动力", studies:[
+      {author:"Qin X Z", year:2005, raw:181, factor:5.38, today:974.6, mm:9.75, ref:"Qin X Z, Li L X, Liu Y Y. The value of life and its regional difference in China. China Agricultural Economic Review, 2013, 5(3): 373-390."},
+      {author:"GUO X Q", year:1998, raw:31.5, factor:10.42, today:328.2, mm:3.28, ref:"Guo X Q, Hammitt J K. Compensating wage differentials with unemployment: evidence from China. Environmental and Resource Economics, 2009, 42(2): 187-209."}
+    ]}
+  ]},
+  { type:"个人意愿（问卷）", fields:[
+    { name:"职业 / 劳动力", studies:[
+      {author:"梅强", year:2004, raw:532, factor:1.56, today:829.9, mm:8.30, ref:"梅强, 陆玉梅. 基于条件价值法的生命价值评估. 管理世界, 2008(6): 174-175."},
+      {author:"程启智", year:2010, raw:500, factor:1.33, today:663.0, mm:6.63, ref:"程启智, 李文鸿, 吴泞江. 基于职业安全管制效益评价的工人生命价值估算. 云南财经大学学报, 2014, 30(1): 145-153."},
+      {author:"党健", year:2010, raw:394.6, factor:1.33, today:523.2, mm:5.23, ref:"党健, 李文鸿, 周凤航. 基于条件价值法的生命价值评估. 河南工业大学学报(社科版), 2012, 8(3): 50-55."}
+    ]},
+    { name:"空气污染", studies:[
+      {author:"Guo X Q", year:1995, raw:46.2, factor:1.79, today:82.7, mm:0.83, ref:"Guo X Q, Ma A. The economic value of air-pollution-related health risks in China. ProQuest, 2006."},
+      {author:"Wang H", year:1998, raw:28.6, factor:1.62, today:46.4, mm:0.46, ref:"Wang H, Mullahy J. Willingness to pay for reducing fatal risk by improving air quality in Chongqing. Science of the Total Environment, 2006, 367(1): 50-57."},
+      {author:"Hammitt J K", year:1999, raw:7.4, factor:1.64, today:12.2, mm:0.12, ref:"Hammitt J K, Zhou Y. The economic value of air-pollution-related health risks in China. Environmental and Resource Economics, 2006, 33(3): 399-423."},
+      {author:"Hoffmann S", year:2006, raw:147, factor:1.51, today:221.8, mm:2.22, ref:"Hoffmann S, Krupnick A, Qin P. Building internationally comparable VSL studies. Journal of Benefit-Cost Analysis, 2017, 8(2): 251-289."},
+      {author:"Huang D S", year:2010, raw:524, factor:1.33, today:694.8, mm:6.95, ref:"Huang D S, Andersson H, Zhang S Q. Willingness to pay to reduce health risks related to air quality in Beijing. Journal of Environmental Planning and Management, 2018, 61(12): 2207-2229."},
+      {author:"高婷", year:2014, raw:100, factor:1.17, today:117.0, mm:1.17, ref:"高婷, 李国星, 胥美美, 等. 基于支付意愿的大气PM2.5健康经济学损失评价. 环境与健康杂志, 2015, 32(8): 697-700."},
+      {author:"Hao Y", year:2016, raw:153, factor:1.13, today:173.1, mm:1.73, ref:"Hao Y, Zhao M Y, Liu Z N. What is the health cost of haze pollution? Evidence from China. Int J Health Plann Manage, 2019, 34(4): 1290-1303."},
+      {author:"Jin Y", year:2016, raw:554, factor:1.13, today:626.8, mm:6.27, ref:"Jin Y, Andersson H, Zhang S. Do preferences to reduce air pollution health risks depend on illness type? J Environ Econ Manage, 2020, 103: 102355."},
+      {author:"彭菲", year:2018, raw:394.8, factor:1.09, today:430.5, mm:4.31, ref:"彭菲, 李雪, 马国霞, 等. 成渝地区大气污染生命统计价值评价研究. 中国环境管理, 2021, 13(1): 136-141."},
+      {author:"Cao C J", year:2019, raw:510, factor:1.06, today:540.6, mm:5.41, ref:"Cao C J, Song X K, Cai W J, et al. Estimating the VSL in China: a CV study in six cities. Chin J Popul Resour Environ, 2023, 21(4): 269-278."}
+    ]},
+    { name:"交通安全", studies:[
+      {author:"Liu W G（DCE）", year:2011, raw:36, factor:1.26, today:45.2, mm:0.45, ref:"Liu W G, Zhao S C. The value of statistical life in road traffic based on logit model. J Transp Syst Eng Inf Technol, 2013, 13(1): 137-141."},
+      {author:"刘文歌", year:2011, raw:59.8, factor:1.26, today:75.1, mm:0.75, ref:"刘文歌, 赵胜川. 道路交通安全统计生命价值评价研究. 中国安全科学学报, 2013, 23(11): 138-144."},
+      {author:"Yang Z", year:2014, raw:718.4, factor:1.17, today:840.8, mm:8.41, ref:"Yang Z, Liu P, Xu X. Estimation of social value of statistical life in Nanjing. Accident Analysis and Prevention, 2016, 95: 308-316."},
+      {author:"Zheng Q K", year:2017, raw:440, factor:1.11, today:489.9, mm:4.90, ref:"Zheng Q K, Liu P, Yang Z, et al. Estimation of value of statistical life in Hangzhou, China. 2019 (conference)."},
+      {author:"刘文歌（DCE）", year:2018, raw:105.8, factor:1.09, today:115.4, mm:1.15, ref:"刘文歌. 道路交通统计生命价值测算模型及其验证. 交通运输系统工程与信息, 2019, 19(5): 198-204."},
+      {author:"刘文歌", year:2018, raw:231.1, factor:1.09, today:252.0, mm:2.52, ref:"刘文歌. 道路交通安全统计生命价值评价研究. 中国安全科学学报, 2019, 29(5): 131-137."}
+    ]},
+    { name:"健康", studies:[
+      {author:"Wang H（癌症）", year:2000, raw:64.8, factor:1.64, today:106.1, mm:1.06, ref:"Wang H, He J. Estimating the economic value of statistical life in China. Frontiers of Economics in China, 2014, 9(2): 183-215."},
+      {author:"Hammitt J K", year:2016, raw:385, factor:1.13, today:435.6, mm:4.36, ref:"Hammitt J K, Geng F L, Guo X Q, et al. Valuing mortality risk in China. Journal of Risk and Uncertainty, 2019, 58(2-3): 167-186."},
+      {author:"张羽（疫情）", year:2020, raw:444, factor:1.04, today:459.6, mm:4.60, ref:"张羽, 任昱侨, 岑康. 新冠疫情背景下建筑从业人员统计生命价值研究. 中国安全生产科学技术, 2023, 19(2): 41-46."}
+    ]}
+  ]}
+];
+
+/* ================= VSL 渲染 ================= */
+let vslSel = { type:0, field:0, study:0 };
+function curStudy(){
+  return VSL[vslSel.type].fields[vslSel.field].studies[vslSel.study];
+}
+
+// 领域 → VSL 研究「就近匹配」：把「微死亡」配一个同领域的「1 微死亡价格」，
+// 让风险因素除了「每年 X 微死亡」还多一句「≈ ¥Y/年」的第二根锚。
+// 匹配规则：健康类因素 → 健康领域；职业/暴露 → 职业领域（市场行为口径偏保守，取 GUO ¥3.28）；
+// 交通 → 交通安全；极限运动/医疗 → 职业（无直接对应，取职业保守值并注明近似）。
+// 每类取一篇「代表研究」，避免随机抽导致口径错配。
+// 把「每年 X 微死亡」配一句「≈ ¥Y/年」的小字。
+// 统一用保守口径 GUO X Q 1998（市场行为 ¥3.28），避免同一页面出现不同价格。
+function vsalFor(){
+  return VSL[0].fields[0].studies[1];   // GUO X Q 1998，1 微死亡 ¥3.28（保守）
+}
+function yuanText(mm){
+  if(mm<=0) return "";
+  const s = vsalFor();
+  return "≈ ¥"+fmt(mm*s.mm,0)+"/年（按 "+s.author+" "+s.year+"，1 微死亡 ¥"+s.mm+"）";
+}
+
+// 「换算」小趣闻（⑧ 修复版）：主句金额统一用 vsalFor() 保守口径 ¥3.28（与列表 yuanText 一致），
+// 随机研究降为背景，补方法类型标签与区间定位句；「换一条」只换背景研究、主句金额不变。
+// 只说换算率（1 微死亡多少钱），不说「一条命多少钱」。
+let funFactNetMM = 0;   // renderRiskProfile 时写入的净偏移（微死亡/年，正=多承担，负=少承担）
+function renderFunFact(){
+  const el = $("funFact");
+  if(!el) return;   // 风险构成卡片尚未生成（没填数据）时不报错
+  const all = [];
+  VSL.forEach(t=> t.fields.forEach(f=> f.studies.forEach(s=> all.push({s, t, f}))));
+  const pick = all[Math.floor(Math.random()*all.length)];
+  const s = pick.s;
+  const base = vsalFor();   // 固定保守口径 GUO X Q 1998（1 微死亡 ¥3.28）
+  const net = funFactNetMM;
+  const yuan = net * base.mm;
+  // 区间定位（24 篇折算价 ¥0.12–9.75，中位约 ¥3.8；偏高 mm>5.5、偏低 mm<1.5）
+  const pos = s.mm > 5.5 ? "偏高" : (s.mm < 1.5 ? "偏低" : "接近中位");
+  const lead = Math.random() < 0.5
+    ? "说个有意思的：在「"+pick.f.name+"」这块，"+s.year+" 年有人算过，"
+    : "有个研究挺好玩——"+s.year+" 年，「"+pick.f.name+"」领域里，";
+  let verdict;
+  if(net > 0){
+    verdict = "这么一算（各项单独折算的粗略合计），你这一年比旁人多承担约 <b>"+fmt(net,0)+" 个微死亡</b>，摊成钱，差不多 <b>¥"+fmt(yuan,0)+"</b>。";
+  } else if(net < 0){
+    verdict = "这么一算（各项单独折算的粗略合计），你这一年比旁人还少承担约 <b>"+fmt(-net,0)+" 个微死亡</b>，摊成钱，也就 <b>¥"+fmt(-yuan,0)+"</b> 的事儿。";
+  } else {
+    verdict = "你这一年，跟旁人半斤八两，没啥差别。";
+  }
+  el.innerHTML = "🎲 "+lead+"<b>1 个微死亡，值 ¥"+s.mm+"</b>（折到 2025 年的价；口径："+pick.t.type+"）。"+verdict+
+    '<span style="color:var(--mut);font-size:11px;">　（'+s.author+' · '+s.year+' · '+pick.f.name+'；24 篇折算价 ¥0.12–9.75，中位约 ¥3.8，这篇属于'+pos+
+    '；主句金额用保守口径 ¥3.28，若按这篇的口径算，会是 ¥'+fmt(net*s.mm,0)+'（负值=少承担））</span>';
+}
+function renderVSLType(){
+  $("vslType").innerHTML = VSL.map((t,i)=>'<option value="'+i+'">'+t.type+'</option>').join("");
+  vslSel.type = 0;
+  renderVSLField();
+}
+function renderVSLField(){
+  $("vslField").innerHTML = VSL[vslSel.type].fields.map((f,i)=>'<option value="'+i+'">'+f.name+'</option>').join("");
+  vslSel.field = 0;
+  renderVSLStudy();
+}
+function renderVSLStudy(){
+  const f = VSL[vslSel.type].fields[vslSel.field];
+  $("vslStudy").innerHTML = f.studies.map((s,i)=>'<option value="'+i+'">'+s.author+' · 调查'+s.year+'</option>').join("");
+  vslSel.study = 0;
+  renderVSLDetail();
+}
+function renderVSLDetail(){
+  const t = VSL[vslSel.type];
+  const f = t.fields[vslSel.field];
+  const s = f.studies[vslSel.study];
+  const adjLabel = t.type==="市场行为（工资补偿）" ? "人均收入折算" : "CPI 折算";
+  $("vslDetail").innerHTML =
+    '<div class="note">'+
+      '<b>'+s.author+'</b>（调查年份 '+s.year+'）｜'+f.name+'｜'+t.type+'<br>'+
+      (s.ref ? '<span style="font-size:12px;color:#6b6b6b;">文献：'+esc(s.ref)+'</span><br>' : '')+
+      '原始值（'+s.year+' 年）：'+s.raw+' 万元 · '+adjLabel+' ×'+s.factor+' → 今日（2025 基准）：<b>'+s.today+' 万元</b> → <b>1 微死亡 ≈ ¥'+s.mm+'</b><br>'+
+      '<span style="font-size:12px;color:#6b6b6b;">注：跨期折算用「调查年份」（数据发生年，非文献发表年份），折算基准年为 2025。</span>'+
+    '</div>';
+  renderMM();
+}
+function renderMM(){
+  const s = curStudy();
+  const rawMM = s.raw / 100;  // 当时 1 微死亡 = raw 万元 × 10000 / 1e6 = raw/100 元
+  $("mmResult").innerHTML =
+    '<div class="num"><div class="k">当时（'+s.year+'）1 微死亡</div><div class="v">¥'+fmt(rawMM,2)+'</div></div>'+
+    '<div class="num"><div class="k">今日（2025 基准）1 微死亡</div><div class="v">¥'+fmt(s.mm,2)+'</div></div>';
+}
+/* ================= 初始化 ================= */
+renderEventSelect();
+loadState();
+loadInstances();
+renderInstSelect();
+renderEvents();
+renderVSLType();
+updateWaistBounds();
+render();
+renderExampleCards();
+
+/* ================= 二期：悬垂气泡、参考文献、报告导出初始化 ================= */
+attachChartPointer();
+renderRefs();
+(function(){
+  const root = document.createElement("div");
+  root.id = "printRoot";
+  root.innerHTML = '<p style="font-size:10.5pt;line-height:1.7;">尚未生成报告——请先在「个人风险报告」区填写信息，再点击「打印报告」。浏览器直接 Ctrl+P 只会打印报告本身。</p>';
+  document.body.appendChild(root);
+  const printBtn = $("reportPrint");
+  const copyBtn = $("reportCopy");
+  if(printBtn){
+    printBtn.addEventListener("click", ()=>{
+      const report = buildReport();
+      root.innerHTML = report;
+      window.print();
+    });
+  }
+  if(copyBtn){
+    copyBtn.addEventListener("click", ()=>{
+      const txt = buildTextSummary();
+      const msg = $("reportCopyMsg");
+      const done = (ok)=>{ if(msg){ msg.textContent = ok ? "已复制到剪贴板。" : "复制失败，请手动选择文本复制。"; } };
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(txt).then(()=>done(true), ()=>done(fallbackCopy(txt)));
+      } else { done(fallbackCopy(txt)); }
+    });
+  }
+})();
+
+/* ================= 章节导航 ================= */
+// 锚点跳转改平滑滚动；「当前章」高亮用 IntersectionObserver（无 IO 时退化为点击高亮）
+// t44：summary 内的引注锚点——点击只跳转，不触发折叠开关
+document.querySelectorAll("summary a").forEach(function(a){ a.addEventListener("click", function(ev){ ev.stopPropagation(); }); });
+const chapterLinks = document.querySelectorAll("#chapterNav a");
+chapterLinks.forEach(a=>a.addEventListener("click", e=>{
+  const el = document.getElementById(a.getAttribute("href").slice(1));
+  if(!el) return;
+  e.preventDefault();
+  const smooth = !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  el.scrollIntoView({behavior: smooth ? "smooth" : "auto", block:"start"});
+  if(history.replaceState) history.replaceState(null, "", "#"+el.id);
+}));
+if (window.IntersectionObserver){
+  const secs = ["prologue","ch1","ch2","ch3","ch4","ch5","epilogue"].map(id=>document.getElementById(id)).filter(Boolean);
+  const obs = new IntersectionObserver(entries=>{
+    entries.forEach(en=>{
+      if(!en.isIntersecting) return;
+      const link = document.querySelector('#chapterNav a[href="#'+en.target.id+'"]');
+      if(link){
+        chapterLinks.forEach(x=>x.classList.remove("active"));
+        link.classList.add("active");
+        const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        link.scrollIntoView({inline:"center", block:"nearest", behavior: reduced ? "auto" : "smooth"});
+      }
+    });
+  }, {rootMargin:"-25% 0px -55% 0px", threshold:0});
+  secs.forEach(s=>obs.observe(s));
+} else {
+  chapterLinks.forEach(a=>a.addEventListener("click", ()=>{
+    chapterLinks.forEach(x=>x.classList.remove("active"));
+    a.classList.add("active");
+  }));
+}
+// N2 阅读进度条：滚动 + passive + rAF 节流
+(function(){
+  const bar = $("chapterProgress");
+  if(!bar) return;
+  let ticking = false;
+  function update(){
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    bar.style.width = (max>0 ? Math.min(100, Math.max(0, window.scrollY/max*100)) : 0) + "%";
+    ticking = false;
+  }
+  window.addEventListener("scroll", ()=>{ if(!ticking){ ticking = true; requestAnimationFrame(update); } }, {passive:true});
+  update();
+})();
+$("modeSeg").addEventListener("click", e=>{
+  if(e.target.tagName!=="BUTTON") return;
+  document.querySelectorAll("#modeSeg button").forEach(x=>x.classList.remove("active"));
+  e.target.classList.add("active");
+  mode = e.target.dataset.mode;
+  render();
+});
+let queryTimer = null;
+$("queryN").addEventListener("input", ()=>{
+  clearTimeout(queryTimer);
+  queryTimer = setTimeout(render, 150);   // 防抖：连续输入只重绘最后一次
+});
+$("queryN").addEventListener("blur", ()=>{ clearTimeout(queryTimer); clampInput($("queryN")); render(); });
+let inputTimer = null;
+["age","bmi","waist","sbp","glu","ldl","hr","sleep","alcohol","smoke","extra"].forEach(id=>{
+  const el = $(id);
+  el.addEventListener("input", ()=>{ clearTimeout(inputTimer); inputTimer = setTimeout(()=>{ render(); saveState(); }, 150); });
+  el.addEventListener("blur", ()=>{ clearTimeout(inputTimer); clampInput(el); render(); saveState(); });
+});
+document.querySelectorAll('input[name=sex]').forEach(r=>r.addEventListener("change", ()=>{
+  updateWaistBounds();
+  render();
+  saveState();
+}));
+// 运动（三档单选）与饮食（5项勾选）：变化即重算
+document.querySelectorAll('input[name=activity]').forEach(r=>r.addEventListener("change", ()=>{ render(); saveState(); }));
+DIET_IDS.forEach(id=>{ $(id).addEventListener("change", ()=>{ render(); saveState(); }); });
+// τ 校准滑块：拖动即重算（代谢簇饱和函数形状参数）
+// ⑪ 防抖：τ/滑杆显示/持久化即时更新，render（含 1000 次蒙特卡洛全量重算）约 200ms 防抖
+let tauTimer = null;
+$("tauSlider").addEventListener("input", ()=>{
+  tau = parseFloat($("tauSlider").value);
+  setTauUI();
+  saveState();
+  clearTimeout(tauTimer);
+  tauTimer = setTimeout(render, 200);
+});
+$("evSelect").addEventListener("change", updateEvInput);
+$("evQty").addEventListener("input", evPreview);
+$("evQty").addEventListener("blur", ()=>{ clampInput($("evQty")); evPreview(); });
+$("evInCurve").addEventListener("change", ()=>{
+  includeEvents = $("evInCurve").checked;
+  $("evInCurveNote").style.display = includeEvents ? "" : "none";
+  renderEvents();
+  render();
+  saveState();
+});
+$("lspanUnit").addEventListener("change", ()=>{
+  lifespanUnit = $("lspanUnit").value;
+  render();
+  saveState();
+});
+$("evAdd").addEventListener("click", addEvent);
+$("eqShuffle").addEventListener("click", ()=>{ pickEqRefs(); renderEvents(); });
+$("evGoCurve").addEventListener("click", ()=>{ const el=$("ch3"); if(el) el.scrollIntoView({behavior:"smooth", block:"start"}); const a=$("age"); if(a) a.focus(); });
+$("instSelect").addEventListener("change", ()=>{
+  const name = $("instSelect").value;
+  if(!name){ curInstName=null; saveCurInst(); instHint("当前为未保存的状态，改动只存本机草稿。"); return; }
+  const inst = instances.find(i=>i.name===name);
+  if(inst){ curInstName = name; saveCurInst(); applyState(inst); instHint("已切换到「"+name+"」，改动将自动保存。"); }
+});
+$("instSaveAs").addEventListener("click", ()=>{
+  const name = ($("instName").value||"").trim();
+  if(!name){ instHint("请先输入状态名，再「存为档案」。"); return; }
+  const idx = instances.findIndex(i=>i.name===name);
+  const st = collectState(); st.name = name;
+  if(idx>=0){ instances[idx] = st; } else { instances.push(st); }
+  saveInstances();
+  curInstName = name;
+  saveCurInst();
+  $("instName").value = "";
+  renderInstSelect();
+  instHint("已存为档案「"+name+"」，改动将自动保存。");
+});
+$("instDelete").addEventListener("click", ()=>{
+  const name = $("instSelect").value;
+  if(!name){ instHint("未保存的状态无需删除。"); return; }
+  const idx = instances.findIndex(i=>i.name===name);
+  if(idx>=0){ instances.splice(idx,1); saveInstances(); }
+  curInstName = null;
+  saveCurInst();
+  renderInstSelect();
+  instHint("已删除「"+name+"」。");
+});
+$("vslType").addEventListener("change", ()=>{ vslSel.type=+$("vslType").value; renderVSLField(); });
+$("vslField").addEventListener("change", ()=>{ vslSel.field=+$("vslField").value; renderVSLStudy(); });
+$("vslStudy").addEventListener("change", ()=>{ vslSel.study=+$("vslStudy").value; renderVSLDetail(); });
+
+// 清空个人信息
+$("clearAll").addEventListener("click", clearAll);
+
+// 小趣闻「换一条」：事件委托（卡片动态生成，按钮每次重写）
+$("riskProfile").addEventListener("click", (e)=>{
+  if(e.target && e.target.id==="funFactRefresh") renderFunFact();
+});
+
+// ⑪ 事件列表「×」删除 + 出版级著录展开：容器级事件委托（替代内联 onclick，消除 CSP 隐患与全局函数暴露）
+$("evList").addEventListener("click", (e)=>{
+  const t = e.target && e.target.closest ? e.target.closest(".x") : null;
+  if(t){ removeEvent(parseInt(t.dataset.idx,10)); return; }
+  const row = e.target && e.target.closest ? e.target.closest(".event-list-item") : null;
+  if(row && row.nextElementSibling && row.nextElementSibling.classList.contains("lou")){
+    const lou = row.nextElementSibling;
+    lou.style.display = lou.style.display==="none" ? "" : "none";
+  }
+});
+
+// 首次访问医疗免责：localStorage 标记，确认后不再重复显示
+(function(){
+  const bar = $("disclaimer");
+  if(!bar) return;
+  try{ if(localStorage.getItem("rb_disclaimer_ok")){ bar.style.display="none"; } }catch(e){}
+  $("disclaimerOk").addEventListener("click", ()=>{
+    bar.style.display="none";
+    try{ localStorage.setItem("rb_disclaimer_ok","1"); }catch(e){}
+  });
+})();
+</script>
+</body>
+</html>

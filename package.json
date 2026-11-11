@@ -1,0 +1,9 @@
+{
+  "name": "death-risk-simulator",
+  "private": true,
+  "version": "1.0.0",
+  "description": "死亡风险模拟器 · 开发期验收脚本（verify.js 功能规格书 §七 + _test_funfact.js 趣闻回归）",
+  "scripts": {
+    "test": "node verify.js && node _test_funfact.js"
+  }
+}
