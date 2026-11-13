@@ -332,11 +332,11 @@
 <body>
 <a href="#docTitle" class="skip-link">跳到正文</a>
 <div id="disclaimer">
-  <span><b>请先了解：</b>本工具只做「风险大小」的科普比较，<b>不预测寿命、不构成任何医疗或保险建议</b>，结果不能用于个体医疗决策或保险定价。文中的寿命收支等所有时间维度数字，都是「当前状态」相对「同龄同性别平均」的差值，不是对个人寿命的预言。如因此感到焦虑或不安，请拨打全国心理援助热线 <b>12356</b>。继续使用即表示你已理解。</span>
-  <button type="button" id="disclaimerOk" class="btn btn-sm btn-primary">我知道了</button>
+  <span><b>这本小书怎么读：</b>它用「微死亡」把日常风险放到同一把尺子上，让你看见自己的位置、人群的平均，以及两者之间的不确定。读的时候如果感到焦虑或不安，请拨打全国心理援助热线 <b>12356</b>。</span>
+  <button type="button" id="disclaimerOk" class="btn btn-sm btn-primary">开始阅读</button>
 </div>
 <main class="wrap" id="main">
-  <p class="sr-only">页面顶部有免责声明，含心理援助热线 12356；如需查看请按 Shift+Tab 回到页面开头的「跳到正文」链接，再按 Shift+Tab 进入免责声明。</p>
+  <p class="sr-only">页面顶部有阅读提示，含心理援助热线 12356；如需查看请按 Shift+Tab 回到页面开头的「跳到正文」链接，再按 Shift+Tab 进入阅读提示。</p>
   <nav class="chapters" id="chapterNav" aria-label="章节目录">
     <a href="#prologue" data-ch="prologue" class="active">序</a>
     <a href="#ch1" data-ch="ch1">第1章 风险换算</a>
@@ -364,7 +364,7 @@
       <div class="p"><b>秦远 · 攀岩爱好者</b><span>信奉「风险是体验的一部分」。他不怕死，但怕死得不明不白：可以为一座山付代价，前提是价码清清楚楚。</span></div>
       <div class="p"><b>林安 · 三个孩子的母亲</b><span>不追求刺激，只追求一家人平平安安。她怕的不是死亡，而是死亡背后的不确定：「知道什么更危险，我就离它远一点。」</span></div>
     </div>
-    <p class="meta">微死亡（micromort）= 百万分之一的死亡概率。例如「跳伞 8 微死亡」＝ 跳一次伞，有 8/100 万的概率因此死亡。本工具只做风险大小的科普比较，<b>不预测寿命、不构成任何医疗或保险建议</b>。</p>
+    <p class="meta">微死亡（micromort）= 百万分之一的死亡概率。例如「跳伞 8 微死亡」＝ 跳一次伞，有 8/100 万的概率因此死亡。</p>
     <p class="meta">三位朋友的原型取自 Bland &amp; Spiegelhalter《The Norm Chronicles》（Profile Books, 2013），此处按中文语境改写为周平、秦远、林安。</p>
   </header>
 
@@ -524,7 +524,7 @@
   <section class="chapter" id="ch3">
     <div class="ch-head"><span class="no">第3章</span><h2>个人状态——你的账本</h2></div>
     <div class="ch-lead">
-      <p>这一章是整个工具的核心：填入年龄、性别与九项健康指标，它会画出「和你数据相同的一群人」的平均生存曲线。这是一条「平均人」的命运曲线（确定性生命表 + 1000 次系数抽样的带），不是你的命运——个体可能落在蓝带内任何位置，也可能落在带外。它不预测寿命。</p>
+      <p>这一章是整个工具的核心：填入年龄、性别与九项健康指标，它会画出「和你数据相同的一群人」的平均生存曲线——确定性生命表打底，1000 次系数抽样给出蓝带。你会看到自己相对同龄人的位置，也会看到这条曲线留有多少余地。</p>
       <p>蓝带是<b>系数不确定带</b>：来自对各状态系数「估计不确定」的 1000 次蒙特卡洛抽样（不含基线口径本身的不确定——换一套人群生命表，整条曲线会整体平移，见第 2 章的来源说明），数字卡取其中位数，与曲线同源。把指针放到曲线上，可查看每个时间点的详细数值（手机上用手指按住拖动，松手后数值保留约 2 秒）。本章末尾的「个人风险报告」可打印（浏览器打印对话框里另存为 PDF）或复制文本摘要——报告只含你输入的数值与计算结果，不含姓名等个人识别信息。</p>
     </div>
     <div class="card">
@@ -629,12 +629,12 @@
         <select id="cmpInst" class="select-compact"><option value="">不叠加</option></select>
         <span id="cmpOut" class="text-mut"></span>
       </div>
-      <div class="hint mt-6 mb-0">这条曲线描述的是「和你数据相同的一群人」的平均命运，不是你的命运——个体可能落在蓝带内任何位置，也可能落在带外。它不预测你的寿命。</div>
+      <div class="hint mt-6 mb-0">曲线给出同群体平均，蓝带标出系数估计的不确定；你的位置可能落在带内，也可能落在带外。看清这段距离，比记住一个点更有用。</div>
       <div id="warnings"></div>
       <div id="riskProfile"></div>
       <div class="card" id="reportCard">
         <h2>个人风险报告</h2>
-        <p class="src mt-0">把当前结果导出为一份自洽的报告：打印版按六部分组织——报告头、输入档案（13 项）、核心结果、风险构成、事件叠加清单、方法与局限（浏览器打印对话框可另存为 PDF）；没填的项目会显示「未填」、没加事件时事件清单只有一行提示，所以整份长度随输入而变。文本摘要是一段可一键复制的纯文本，不是同一份报告的逐行镜像。报告只含你输入的数值与计算结果，<b>不含姓名等个人识别信息</b>，不构成医疗或保险建议。</p>
+        <p class="src mt-0">把当前结果导出为一份自洽的报告：打印版按六部分组织——报告头、输入档案（13 项）、核心结果、风险构成、事件叠加清单、方法与局限（浏览器打印对话框可另存为 PDF）；没填的项目会显示「未填」、没加事件时事件清单只有一行提示，所以整份长度随输入而变。文本摘要是一段可一键复制的纯文本，不是同一份报告的逐行镜像。报告只含你输入的数值与计算结果，<b>不含姓名等个人识别信息</b>。</p>
         <div class="btn-row">
           <button id="reportPrint" type="button" class="btn btn-primary">打印报告（可另存 PDF）</button>
           <button id="reportCopy" type="button" class="btn">复制文本摘要</button>
@@ -648,7 +648,7 @@
   <section class="chapter" id="ch4">
     <div class="ch-head"><span class="no">第4章</span><h2>价格——风险的另一把尺子</h2></div>
     <div class="ch-lead">
-      <p>把 1 微死亡折算成人民币，是一种很老的经济学方法。先说清楚它不是什么：它不是说「一条命值多少钱」，而是说「社会愿意为减少 1 个微死亡支付多少钱」——一个换算率，只用于比较不同风险的大小。</p>
+      <p>把 1 微死亡折算成人民币，是一种很老的经济学方法：它算的是社会愿意为减少 1 个微死亡支付多少钱。这个换算率让不同风险可以放到同一张价格表上比较。</p>
       <p>中国的统计生命价值研究已由 1 篇系统综述纳入 28 项研究（那艺诺等，2025），其中 24 项有明确调查年份、可做跨期折算，内嵌于本工具。这 24 项的价格从 ¥0.12 到 ¥9.75 不等——差别不在「命有贵贱」，而在方法：<b>市场行为（工资补偿）</b>捕捉真实支付行为、数值偏高；<b>个人意愿（问卷）</b>受假设偏差影响、跨度大。<b>本工具不把它们平均成一个数</b>（不同方法测的不是同一个量，平均会把方法差异伪装成随机误差）。折算风险构成时，每一行按该因素所属领域的代表研究取价（健康类 Hammitt 2016、交通类 Zheng 2017、职业类 GUO 1998、污染类 Cao 2019），所以不同行的价格本来就不一样：职业类 GUO 1998 折至 2025 年约 ¥3.28/微死亡，健康类 Hammitt 2016 约 ¥4.35，交通类 Zheng 2017 约 ¥4.90。</p>
     </div>
     <div class="card">
@@ -728,8 +728,10 @@
       <h3>编校信息</h3>
       <p class="src mt-0">本版由作者完成多轮事实核查与校对，并参考公开数据来源。</p>
       <details>
-        <summary>编校信息（版本 1.0.1 · 作者自校）</summary>
-        <p class="src">版本 1.0.1（正式版）。本版经过作者多轮事实核查与校对，参考公开数据来源，并采纳多轮独立评审意见。修订建议请附证据指出，按「原文—改法—依据」三栏记录。本工具不预测寿命：寿命收支等所有时间维度数字都是「当前状态」相对「同龄同性别平均」的差值，不是对个人寿命的预言。</p>
+        <summary>编校与版本记录（1.0.1）</summary>
+        <p class="src"><b>1.0.1（2026-11-13）</b>：生命表换为 WHO 中国 2019–2023 一般人口口径；加入逐行领域取价、比例风险背景曲线、月模式、档案对照与可打印报告；完成多轮外审与内部盲审修复。</p>
+        <p class="src"><b>1.0.0（2026-11-11）</b>：首个稳定单文件版本，确立七章叙事、微死亡与微寿命两把尺子，以及离线可用的本机账本。</p>
+        <p class="src">修订建议请附证据指出，按「原文—改法—依据」三栏记录；完整版本记录见项目仓库 <code>CHANGELOG.md</code>。</p>
       </details>
       <p class="src">© 2026 Dasein0721 · 本作品采用 CC BY-NC 4.0（署名—非商业性使用）许可：转发、改编并公开发表须保留作者署名，商业用途须事先取得许可，个人学习与研究自由。协议见 https://creativecommons.org/licenses/by-nc/4.0/。</p>
       <h3>求助引导</h3>
@@ -749,7 +751,7 @@
         <li>生命表的单岁值由 5 岁组换算：组内按「风险恒定」摊到每一岁，所以 5–9 岁、10–14 岁等组内各年死亡率相同，是平滑后的近似而非逐年实测（0–4 岁分婴儿期与幼儿期两段；85 岁以上为 Gompertz 拟合外推）。</li>
       </ol>
     </details>
-    <p class="mt-6 mb-0 fs-14">本工具仅供理解风险量级，不构成任何医疗或预测结论。</p>
+    <p class="mt-6 mb-0 fs-14">把风险放回量级里看，是这本小书想留下的东西；体检、诊断与保单，请交给医生和专业人士。</p>
     <p class="src mt-6 mb-0">数据来源与局限：生命表（WHO 全球卫生观察站中国 2019–2023 五年平均，一般人口口径；不采用保险业经验生命表，因承保筛选会让 40–80 岁死亡率偏低约四成）；85 岁以上为 Gompertz 拟合外推（WHO 公开表 85 岁以后只有 5 岁组，取不到单岁值）；9 个状态系数来源在「填写后」的动态提示中逐条给出；综合风险校准参数（k1 / CAP / τ）取值见第2章；微死亡表信度分级与溯源见第1章与第2章；VSL 24 篇折算口径见第4章与第2章。</p>
     <div class="divider-16">
       <b>隐私与本机数据（这条请务必读）</b>
@@ -3514,7 +3516,7 @@ function toggleEventLou(row){
   $("disclaimerOk").addEventListener("click", ()=>{
     bar.style.display="none";
     try{ localStorage.setItem("rb_disclaimer_ok","1"); }catch(e){}
-    // 免责声明是页面第一个可聚焦区域；关闭后焦点不能掉回 body，否则键盘用户要从头 Tab 一遍
+    // 顶部阅读提示是页面第一个可聚焦区域；关闭后焦点不能掉回 body，否则键盘用户要从头 Tab 一遍
     const t = $("docTitle");
     if(t) t.focus({preventScroll:true});
   });
@@ -3557,7 +3559,7 @@ function toggleEventLou(row){
     try{
       for(let i=0;i<localStorage.length;i++){
         const k = localStorage.key(i);
-        // 免责声明确认是一次性本机状态：不随备份迁移，换设备/清空后应重新确认（第七份外审）。
+        // 顶部阅读提示的确认是一次性本机状态：不随备份迁移，换设备/清空后应重新确认（第七份外审）。
         if(!k || k.indexOf("rb_") !== 0 || k === "rb_disclaimer_ok") continue;
         data[k] = localStorage.getItem(k);
       }
@@ -3619,7 +3621,7 @@ function toggleEventLou(row){
         }catch(e){ inpOK = false; }
         if(!inpOK){ hint("备份里的个人信息格式不对，已停止导入（本机原记录未动）。"); imp.value = ""; return; }
       }
-      // 同导出：免责声明确认不随备份迁移，导入后仍由本机状态决定是否显示。
+      // 同导出：顶部阅读提示的确认不随备份迁移，导入后仍由本机状态决定是否显示。
       const keys = Object.keys(obj.data).filter(k => k.indexOf("rb_") === 0 && k !== "rb_disclaimer_ok" && typeof obj.data[k] === "string");
       if(!keys.length){ hint("备份里没有可导入的记录。"); imp.value = ""; return; }
       if(!window.confirm("导入会覆盖这台设备上现有的记录（备份含 " + keys.length + " 项），继续？")){ imp.value = ""; return; }
