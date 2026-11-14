@@ -68,9 +68,9 @@ vm.createContext(sandbox);
 
 // ---- 包裹成 IIFE，导出需要的符号（含可改 tau / 可强制正态抽样 z 的闭包 setter）----
 const wrapped = `(function(){\n${core}\nreturn {
-  MALE, FEMALE, EVENTS, REL, SRC, COEF_FACTORS, MEAN_REF, COEF_CI, VSL, IDX, DIET_IDS,
+  MALE, FEMALE, EVENTS, CATALOG, REL, SRC, COEF_FACTORS, MEAN_REF, COEF_CI, VSL, IDX, DIET_IDS,
   EV_RANGE, EV_YEAR, CAP_SIGMA,
-  qAt, computeCoefficients, computeSurvival, saturate, bodyShapeFactor, colorTone,
+  qAt, computeCoefficients, computeSurvival, lifeExpectancyYears, saturate, bodyShapeFactor, colorTone, validateData,
   activityFactor, dietFactor, rawFactor, anchorDivisor, meanRef, coefMM, sigmaFromCI,
   monteCarloBand, sampleCoeff, eventTotalMicromort, computeFromParts,
   DEFL_INC, DEFL_CPI, DEFL_BASE, deflIncomeRatio, deflCpiCum, deflFactor,
@@ -103,14 +103,14 @@ function near(id, label, actual, expected, tol) {
 // ---- 常用：40 岁男 ----
 const AGE = 40, SEX = 'm';
 
-console.log('死亡风险模拟器 · 验收标准复跑（功能规格书 §七 + 优化问题清单新增断言）\n');
+console.log('死亡风险模拟器 · 验收标准复跑（验收标准 + 回归断言）\n');
 
 // ============ 1. 年度背景风险 ============
 {
   const q = api.qAt(AGE, SEX);
   const mm = q * 1e6;
-  check('1', '年龄 40 男 → 年度背景风险 ≈ 2245 微死亡（WHO 40 岁男 2.245‰）',
-    Math.round(mm) === 2245, `qAt(40,"m")=${mm.toFixed(1)} 微死亡/年`);
+  check('1', '年龄 40 男 → PCHIP 单岁背景风险 ≈ 1922 微死亡（5 年组 2.245‰ 保持）',
+    Math.round(mm) === 1922, `qAt(40,"m")=${mm.toFixed(1)} 微死亡/年`);
 }
 
 // ============ 2. extra 叠加后曲线下降 ============
@@ -138,9 +138,10 @@ console.log('死亡风险模拟器 · 验收标准复跑（功能规格书 §七
 // ============ 4. 吸烟 20 支/天 → 等效额外 494 微死亡/年 ============
 {
   const f = api.rawFactor(api.IDX.SMOKE, 20, SEX) / api.anchorDivisor('吸烟', SEX, AGE);
-  const mm = api.qAt(AGE, SEX) * (f - 1) * 1e6;
-  check('4', '吸烟 20 支/天 → 系数 1.4865、等效额外 ≈ 1092 微死亡/年（相对人群平均 8 支/天）',
-    Math.round(mm) === 1092, `f=${f.toFixed(4)}，等效额外=${mm.toFixed(1)} 微死亡/年`);
+  const q = api.qAt(AGE, SEX);
+  const mm = ((1 - Math.pow(1 - q, f)) - q) * 1e6;
+  check('4', '吸烟 20 支/天 → 系数 1.4865、等效额外 ≈ 934 微死亡/年（PCHIP 后比例风险口径）',
+    Math.round(mm) === 934, `f=${f.toFixed(4)}，等效额外=${mm.toFixed(1)} 微死亡/年`);
 }
 
 // ============ 5 / 5a. VSL 两口径 ============
@@ -352,12 +353,36 @@ check('5a', '市场行为→职业→GUO X Q 1998 → 今日 ¥3.28（31.5 万�
   const sHigh = api.colorTone('吸烟', 'neg', exp(0, 20));
   const flat  = api.colorTone('饮酒', 'zero', exp(0, 0));
   const other = api.colorTone('心率', 'pos', exp(0, 0));
-  const legacy = api.colorTone('饮酒', 'pos', 50);   // 旧签名（第三参数是数字）仍按饮酒处理
   const ok = aZero === 'ok' && aLow === 'mut' && aHigh === 'danger'
           && sZero === 'ok' && sLow === 'mut' && sHigh === 'danger'
-          && flat === 'mut' && other === 'ok' && legacy === 'mut';
-  check('16', '⑦ 饮酒/吸烟三档着色：0=绿、低于人群平均=灰、高于平均=红（其他因素不受影响，旧调用兼容）',
+          && flat === 'mut' && other === 'ok';
+  check('16', '⑦ 饮酒/吸烟三档着色：0=绿、低于人群平均=灰、高于平均=红（其他因素不受影响）',
     ok, `饮酒 0/${aLow}/${aHigh}，吸烟 ${sZero}/${sLow}/${sHigh}，持平=${flat}，心率=${other}`);
+}
+
+// ============ 26. 寿命收支分母：t=0 不计入剩余寿命 ============
+{
+  const flatY = Array.from({length:66}, (_,t)=>({t, s:1}));
+  const flatM = Array.from({length:37}, (_,t)=>({t, s:1}));
+  const leY = api.lifeExpectancyYears(flatY, 'year');
+  const leM = api.lifeExpectancyYears(flatM, 'month');
+  const ok = Math.abs(leY - 65) < 1e-9 && Math.abs(leM - 3) < 1e-9;
+  check('26', '寿命收支分母从 t=1 起加：66 个整年点 → 65 年，37 个月点 → 3 年', ok, 'leY=' + leY + '，leM=' + leM);
+}
+
+// ============ 27. 事件名与 CATALOG 著录一一对应 ============
+{
+  const evNames = api.EVENTS.flatMap(c => c.items.map(i => i[0]));
+  const missing = evNames.filter(n => !api.CATALOG.some(c => c.n === n));
+  check('27', '每个事件名都能在 CATALOG 找到著录（改名不会静默丢来源）', missing.length === 0,
+    missing.length ? '缺失：' + missing.join('、') : '事件 ' + evNames.length + ' 条，全部有著录');
+}
+
+// ============ 28. 数据自检：事件/CATALOG/信度/SRC 一致 ============
+{
+  const errs = api.validateData();
+  check('28', '数据自检无错误（事件/CATALOG/信度/SRC/区间/年份/数值/竖线）', errs.length === 0,
+    errs.length ? errs.slice(0, 5).join('；') : '事件 ' + api.EVENTS.flatMap(c=>c.items).length + ' 条');
 }
 
 // ---- 汇总 ----

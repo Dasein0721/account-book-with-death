@@ -71,8 +71,8 @@ const sandbox = {
 vm.createContext(sandbox);
 
 const wrapped = '(function(){\n' + core + '\nreturn { VSL, vsalFor, renderFunFact, yuanText,' +
-  ' setFunFactNetMM(n){ funFactNetMM = n; }, getFunFactNetMM(){ return funFactNetMM; },' +
-  ' resetFunFactPick(){ funFactPick = null; } };\n})()';
+  ' setFunFactNetMM(n){ ViewState.funFactNetMM = n; }, getFunFactNetMM(){ return ViewState.funFactNetMM; },' +
+  ' resetFunFactPick(){ ViewState.funFactPick = null; } };\n})()';
 
 let api;
 try {
@@ -89,7 +89,7 @@ function check(id, label, ok, detail) {
   else    { fail++; console.log(`  ✗ ${id}  ${label}${detail ? '  → ' + detail : ''}`); }
 }
 
-console.log('「换算」小趣闻回归（优化问题清单 ⑧）\n');
+console.log('「换算」小趣闻回归（趣闻回归）\n');
 
 const funFactEl = elStub;   // $("funFact") 经 document.getElementById 返回 elStub
 
