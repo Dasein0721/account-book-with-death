@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "如果使用本工具或数据，请引用本条目。"
+title: "与死神的账本：用微死亡丈量中国人的风险"
+type: software
+authors:
+  - family-names: "Dasein"
+    given-names: "0721"
+    alias: "Dasein0721"
+version: 1.0.2
+date-released: "2026-11-14"
+license: "CC-BY-NC-4.0"
+repository-code: "https://github.com/Dasein0721/account-book-with-death"
+url: "https://github.com/Dasein0721/account-book-with-death"

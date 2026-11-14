@@ -19,6 +19,8 @@ const ok = (name, cond, extra) => {
 };
 
 const stats = { ops: 0, strokes: 0, texts: 0, nan: 0 };
+const hiddenToggles = [];   // 记录 instLoadCard 的 hidden 切换方向
+const evToolsToggles = [];  // 记录 evTools 的 hidden 切换方向
 const ctxObj = new Proxy({}, {
   get: (t, k) => {
     if (k === 'measureText') return s => ({ width: String(s).length * 6 });
@@ -37,7 +39,11 @@ const ctxObj = new Proxy({}, {
 const mk = id => ({
   id, value: '', checked: false, textContent: '', innerHTML: '', disabled: false,
   style: {}, dataset: {}, min: '', max: '', step: '',
-  classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
+  classList: {
+    add() {}, remove() {},
+    toggle(c, force) { if (id === 'instLoadCard' && c === 'hidden') hiddenToggles.push(force); if (id === 'evTools' && c === 'hidden') evToolsToggles.push(force); },
+    contains: () => false,
+  },
   addEventListener() {}, removeEventListener() {},
   appendChild(c) { return c; }, insertBefore(c) { return c; }, removeChild() {},
   querySelectorAll: () => [], querySelector: () => null, getContext: () => ctxObj,
@@ -109,6 +115,8 @@ const led = document.getElementById('lspanLedger').innerHTML;
 ok('6  寿命收支表有内容且无 NaN', led.length > 200 && led.indexOf('NaN') < 0, led.length + ' 字符');
 const nums = document.getElementById('nums').innerHTML;
 ok('7  数字卡有百分比且无 NaN', nums.indexOf('%') >= 0 && nums.indexOf('NaN') < 0, nums.length + ' 字符');
+ok('8  空事件列表时「换一批参照」禁用', document.getElementById('eqShuffle').disabled === true);
+ok('8b 空事件列表时事件工具隐藏', evToolsToggles.includes(true), 'hidden 切换=' + JSON.stringify(evToolsToggles));
 const warns = document.getElementById('warnings').innerHTML;
 ok('9  系数不确定带提示语已渲染（band 分支走到）', warns.indexOf('次蒙特卡洛抽样') >= 0, warns.length + ' 字符');
 const inst = document.getElementById('instSelect').innerHTML;
@@ -137,7 +145,7 @@ ok('12 著录面板按 class 展开/收起并同步 aria-expanded', openOk && cl
 document.getElementById('age').value = '40'; sandbox.render();
 let repTxt = '', modErr = null;
 try { repTxt = vm.runInContext('Report.build()', sandbox); } catch (e) { modErr = e; }
-ok('13 报告模块能由最新快照生成且无 NaN', !modErr && repTxt.indexOf('输入档案') >= 0 && repTxt.indexOf('NaN') < 0, modErr ? modErr.message : repTxt.length + ' 字符');
+ok('13 报告模块能由最新快照生成、含 τ 且无 NaN', !modErr && repTxt.indexOf('输入档案') >= 0 && repTxt.indexOf('本次计算参数') >= 0 && repTxt.indexOf('τ=') >= 0 && repTxt.indexOf('未达标（0 项）') < 0 && repTxt.indexOf('NaN') < 0, modErr ? modErr.message : repTxt.length + ' 字符');
 let chartApi = '';
 try { chartApi = vm.runInContext('typeof Chart.draw + "/" + typeof Chart.geom + "/" + typeof Chart.attachPointer', sandbox); } catch (e) { chartApi = 'ERR ' + e.message; }
 ok('14 Chart 模块暴露 draw/geom/attachPointer', chartApi === 'function/function/function', chartApi);
@@ -165,13 +173,15 @@ ok('16 高龄（95 岁）图表的屏幕阅读器描述仍有关键年龄', !srE
 // 17：事件行 aria-controls 必须指向真实存在的著录面板 id（第七份外审）
 let evHtml = '', evErr = null;
 try {
-  vm.runInContext('eventList = [{kind:"event",name:"一氧化碳中毒",value:1,unit:"年",perYearMicromort:8.65}]', sandbox);
+  vm.runInContext('StoreState.eventList = [{kind:"event",name:"一氧化碳中毒",value:1,unit:"年",perYearMicromort:8.65}]', sandbox);
   vm.runInContext('renderEvents()', sandbox);
   evHtml = document.getElementById('evList').innerHTML;
 } catch (e) { evErr = e; }
 const ctrl = (evHtml.match(/aria-controls="(lou-[^"]+)"/) || [])[1] || '';
 ok('17 事件行 aria-controls 指向存在的著录面板', !evErr && !!ctrl && evHtml.indexOf('id="' + ctrl + '"') >= 0,
   evErr ? evErr.message : (ctrl || '未生成 aria-controls'));
+ok('17b 有事件时「换一批参照」恢复可用', !evErr && document.getElementById('eqShuffle').disabled === false);
+ok('17c 有事件时事件工具显示', !evErr && evToolsToggles.includes(false), 'hidden 切换=' + JSON.stringify(evToolsToggles));
 
 // 18：二次 tap 后必须重新上锁，否则 pointermove 的 touch 分支会直接 return（第八份外审）
 let touchErr = null, touchLocked = false;
@@ -190,8 +200,8 @@ ok('18 二次 tap 后气泡仍可拖动', !touchErr && touchLocked === true,
 // 19：导入的旧备份可能带越界 coefIdx，刷新时不能把整页打崩（第八份外审）
 let coefErr = null, coefVal = null;
 try {
-  vm.runInContext('eventList=[{kind:"coef",name:"坏索引",value:1,unit:"",coefIdx:99,perYearMicromort:123}]; refreshCoefEntries();', sandbox);
-  coefVal = vm.runInContext('eventList[0].perYearMicromort', sandbox);
+  vm.runInContext('StoreState.eventList=[{kind:"coef",name:"坏索引",value:1,unit:"",coefIdx:99,perYearMicromort:123}]; refreshCoefEntries();', sandbox);
+  coefVal = vm.runInContext('StoreState.eventList[0].perYearMicromort', sandbox);
 } catch (e) { coefErr = e; }
 ok('19 越界 coefIdx 不崩溃且保留原值', !coefErr && coefVal === 123,
   coefErr ? coefErr.message : ('perYearMicromort=' + coefVal));
@@ -199,7 +209,7 @@ ok('19 越界 coefIdx 不崩溃且保留原值', !coefErr && coefVal === 123,
 // 20：事件 unit 来自可导入的备份，必须转义（第八份外审）
 let unitErr = null, unitHtml = '';
 try {
-  vm.runInContext('eventList=[{kind:"event",name:"测试",value:1,unit:"<img src=x onerror=alert(1)>",perYearMicromort:1}]; renderEvents();', sandbox);
+  vm.runInContext('StoreState.eventList=[{kind:"event",name:"测试",value:1,unit:"<img src=x onerror=alert(1)>",perYearMicromort:1}]; renderEvents();', sandbox);
   unitHtml = document.getElementById('evList').innerHTML;
 } catch (e) { unitErr = e; }
 ok('20 事件 unit 已转义', !unitErr && unitHtml.indexOf('&lt;img') >= 0 && unitHtml.indexOf('<img src=x') < 0,
@@ -208,10 +218,10 @@ ok('20 事件 unit 已转义', !unitErr && unitHtml.indexOf('&lt;img') >= 0 && u
 // 21：100 岁对照不应重复显示 10/20/30 年（都会落到 105 岁末元素）（第八份外审）
 let cmpErr = null, cmpTxt = '';
 try {
-  vm.runInContext('instances=[{name:"百岁",sex:"m",inputs:{age:"100"},events:[]}]; const sel=$("cmpInst"); sel.value="百岁"; renderCompare(40,"m");', sandbox);
+  vm.runInContext('StoreState.instances=[{name:"百岁",sex:"m",inputs:{age:"100"},events:[]}]; const sel=$("cmpInst"); sel.value="百岁"; renderCompare(40,"m");', sandbox);
   cmpTxt = document.getElementById('cmpOut').textContent;
 } catch (e) { cmpErr = e; }
-ok('21 高龄对照不再重复 10/20/30 年', !cmpErr && cmpTxt.indexOf('至 105 岁（5 年后）') >= 0 && cmpTxt.indexOf('30 年后') < 0,
+ok('21 高龄存档不再显示 105 岁 0% 端点', !cmpErr && cmpTxt.indexOf('1 年后') >= 0 && cmpTxt.indexOf('3 年后') >= 0 && cmpTxt.indexOf('105 岁') < 0 && cmpTxt.indexOf('0.0%') < 0,
   cmpErr ? cmpErr.message : cmpTxt);
 
 // 22：月模式的 base.t 是月数，不能再拿年龄差当数组下标（第九份外审）
@@ -275,21 +285,21 @@ ok('26 背景年风险不超过 100% 且与 PH 一致', !bgErr && bgVal <= 1e6 &
 // 27：清空当前填写不能把空值回写已存档案（内部审查 P1）——确认框承诺「已存档案不受影响」
 let clearAllErr = null, archiveAfter = null, curAfter = null, selectAfter = null;
 try {
-  vm.runInContext('instances = [{name:"甲",sex:"m",inputs:{age:"50"},events:[]}]; curInstName="甲"; saveInstances();', sandbox);
+  vm.runInContext('StoreState.instances = [{name:"甲",sex:"m",inputs:{age:"50"},events:[]}]; StoreState.curInstName="甲"; saveInstances();', sandbox);
   document.getElementById('instSelect').value = '甲';   // 模拟清空前下拉正显示「甲」
   vm.runInContext('clearAll();', sandbox);
   const after = JSON.parse(store.get('rb_instances'));
   archiveAfter = after[0] && after[0].inputs && after[0].inputs.age;
-  curAfter = vm.runInContext('curInstName', sandbox);
+  curAfter = vm.runInContext('StoreState.curInstName', sandbox);
   selectAfter = document.getElementById('instSelect').value;
 } catch (e) { clearAllErr = e; }
 ok('27 清空填写不覆盖已存档案且下拉复位', !clearAllErr && archiveAfter === '50' && curAfter === null && selectAfter === '',
-  clearAllErr ? clearAllErr.message : ('档案年龄=' + archiveAfter + '，curInstName=' + curAfter + '，下拉=' + selectAfter));
+  clearAllErr ? clearAllErr.message : ('档案年龄=' + archiveAfter + '，StoreState.curInstName=' + curAfter + '，下拉=' + selectAfter));
 
 // 28：可展开事件行必须用真正的 button，不能让 div[role=button] 包着删除 button（UX 盲审 P2）
 let evA11yErr = null, evA11yHtml = '';
 try {
-  vm.runInContext('eventList=[{kind:"event",name:"一氧化碳中毒",value:1,unit:"年",perYearMicromort:8.65}]; renderEvents();', sandbox);
+  vm.runInContext('StoreState.eventList=[{kind:"event",name:"一氧化碳中毒",value:1,unit:"年",perYearMicromort:8.65}]; renderEvents();', sandbox);
   evA11yHtml = document.getElementById('evList').innerHTML;
 } catch (e) { evA11yErr = e; }
 ok('28 事件展开行是真实按钮且删除按钮同级',
@@ -316,13 +326,68 @@ ok('30 坏事件 JSON 不阻断 τ 恢复', !evLoadErr && tauAfterBadEvents === 
 // 31：档案名可含竖线，join("|") 会把两组不同名字撞成同一签名，对照下拉不再重建（内部审查 P3 补漏）
 let cmpSigErr = null, cmpHtmlA = '', cmpHtmlB = '';
 try {
-  vm.runInContext('instances=[{name:"a|b",sex:"m",inputs:{age:"50"},events:[]},{name:"c",sex:"m",inputs:{age:"50"},events:[]}]; renderCompare(40,"m");', sandbox);
+  vm.runInContext('StoreState.instances=[{name:"a|b",sex:"m",inputs:{age:"50"},events:[]},{name:"c",sex:"m",inputs:{age:"50"},events:[]}]; renderCompare(40,"m");', sandbox);
   cmpHtmlA = document.getElementById('cmpInst').innerHTML;
-  vm.runInContext('instances=[{name:"a",sex:"m",inputs:{age:"50"},events:[]},{name:"b|c",sex:"m",inputs:{age:"50"},events:[]}]; renderCompare(40,"m");', sandbox);
+  vm.runInContext('StoreState.instances=[{name:"a",sex:"m",inputs:{age:"50"},events:[]},{name:"b|c",sex:"m",inputs:{age:"50"},events:[]}]; renderCompare(40,"m");', sandbox);
   cmpHtmlB = document.getElementById('cmpInst').innerHTML;
 } catch (e) { cmpSigErr = e; }
 ok('31 含竖线的档案名不会撞对照签名', !cmpSigErr && cmpHtmlA !== cmpHtmlB && cmpHtmlB.indexOf('b|c') >= 0,
   cmpSigErr ? cmpSigErr.message : ('重建=' + (cmpHtmlA !== cmpHtmlB)));
+ok('32 有档案时展开「已存档案」卡', hiddenToggles.includes(false), 'hidden 切换=' + JSON.stringify(hiddenToggles));
+let delEnabled = null;
+try { vm.runInContext('StoreState.instances=[{name:"甲",sex:"m",inputs:{age:"50"},events:[]}]; renderInstSelect();', sandbox); delEnabled = document.getElementById('instDelete').disabled === false; } catch (e) {}
+ok('33 有档案时「删除」可点', delEnabled === true, 'enabled=' + delEnabled);
+let kbErr = null, kbOK = false, kbHtml = '', kbLive = '';
+try {
+  document.getElementById('age').value = '40';
+  vm.runInContext('render(); Chart.attachPointer();', sandbox);
+  kbOK = vm.runInContext('Chart.showAtT(ViewState.lastRenderState.marks[0])', sandbox);
+  kbHtml = document.getElementById('chartBubble').innerHTML;
+  kbLive = document.getElementById('chartKbSr').textContent;
+} catch (e) { kbErr = e; }
+ok('34 图表键盘关键点能打开气泡并播报', !kbErr && kbOK === true && kbHtml.length > 20 && kbLive.length > 10,
+  kbErr ? kbErr.message : ('ok=' + kbOK + '，html=' + kbHtml.slice(0, 30) + '，live=' + kbLive.slice(0, 30)));
+
+// 35：默认「说不清/没填」是独立状态，报告显示中性未填写，而不是 0 项未达标
+let duErr = null, duTxt = '';
+try {
+  document.getElementById('age').value = '40';
+  document.getElementById('diet_unknown').checked = true;
+  vm.runInContext('setDiet({}); setDietUnknown(true); render();', sandbox);
+  duTxt = vm.runInContext('Report.build()', sandbox);
+} catch (e) { duErr = e; }
+ok('35 饮食默认「说不清/没填」按中性 1.00，报告不再写未达标（0 项）', !duErr && duTxt.indexOf('未填写（不调整）') >= 0 && duTxt.indexOf('未达标（0 项）') < 0,
+  duErr ? duErr.message : ('含未填写=' + (duTxt.indexOf('未填写（不调整）') >= 0)));
+
+// 36：明确勾 1 项时退出中性状态，仍按 CKB 未达标 1.12 显示
+let oneErr = null, oneTxt = '';
+try {
+  document.getElementById('diet_unknown').checked = false;
+  vm.runInContext('setDietUnknown(false); setDiet({diet_v:true}); render();', sandbox);
+  oneTxt = vm.runInContext('Report.build()', sandbox);
+} catch (e) { oneErr = e; }
+ok('36 勾 1 项饮食时报告为未达标（1 项）', !oneErr && oneTxt.indexOf('未达标（1 项）') >= 0,
+  oneErr ? oneErr.message : ('含未达标1=' + (oneTxt.indexOf('未达标（1 项）') >= 0)));
+
+// 37：再选「说不清/没填」会清空五项，避免两个状态同时为真
+let resetErr = null, resetOK = false;
+try {
+  vm.runInContext('setDietUnknown(true);', sandbox);
+  resetOK = vm.runInContext('DIET_IDS.every(id=>!$(id).checked) && getDietUnknown()', sandbox);
+} catch (e) { resetErr = e; }
+ok('37 选回「说不清/没填」会清空五项', !resetErr && resetOK === true,
+  resetErr ? resetErr.message : ('清空=' + resetOK));
+
+// 38：一次性事件的金额不能再写「／年」
+let onceErr = null, onceTxt = '';
+try { onceTxt = vm.runInContext('yuanText(8, "跳伞", true)', sandbox); } catch (e) { onceErr = e; }
+ok('38 一次性事件金额只标今年，不写／年', !onceErr && onceTxt.indexOf('仅今年这一次') >= 0 && onceTxt.indexOf('／年') < 0,
+  onceErr ? onceErr.message : onceTxt);
+
+let snapTxt = '', snapErr = null;
+try { snapTxt = vm.runInContext('Report.build()', sandbox); } catch (e) { snapErr = e; }
+ok('39 报告与当前页面同快照（年龄/系数都在）', !snapErr && snapTxt.indexOf('40 岁') >= 0 && snapTxt.indexOf('综合状态系数') >= 0,
+  snapErr ? snapErr.message : ('len=' + snapTxt.length));
 
 console.log('\n结果：' + pass + ' 通过 / ' + fail + ' 失败（共 ' + (pass + fail) + ' 条）');
 process.exit(fail === 0 ? 0 : 1);
