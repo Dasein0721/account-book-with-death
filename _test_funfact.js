@@ -89,7 +89,7 @@ function check(id, label, ok, detail) {
   else    { fail++; console.log(`  ✗ ${id}  ${label}${detail ? '  → ' + detail : ''}`); }
 }
 
-console.log('「换算」小趣闻回归（试算校验）\n');
+console.log('「换算」小趣闻回归（优化问题清单 ⑧）\n');
 
 const funFactEl = elStub;   // $("funFact") 经 document.getElementById 返回 elStub
 

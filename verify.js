@@ -112,7 +112,7 @@ function near(id, label, actual, expected, tol) {
 // ---- 常用：40 岁男 ----
 const AGE = 40, SEX = 'm';
 
-console.log('死亡风险模拟器 · 验收标准复跑\n');
+console.log('死亡风险模拟器 · 验收标准复跑（功能规格书 §七 + 优化问题清单新增断言）\n');
 
 // ============ 1. 年度背景风险 ============
 {
@@ -158,9 +158,16 @@ console.log('死亡风险模拟器 · 验收标准复跑\n');
   // 回归：消防员由「自媒体推算 D 级」改为「官方分子 ÷ 官方分母 B 级」
   {
     const f = api.CATALOG.find(c => c.n === '消防员');
-    check('1g', '消防员 = 官方分子÷官方分母（174 微死亡，B 级）',
-      !!f && f.r === 'B' && Math.abs(parseFloat(f.v) - 174) < 0.5,
-      f ? 'v=' + f.v + ' r=' + f.r : 'CATALOG 中找不到消防员');
+    // 回归：公式列「÷ … ×1e6」曾算错 10 倍（4.9 / 0.9），此处按官方分子÷分母复算
+    const nat = api.CATALOG.find(c => c.n === '自然灾害（全类型）');
+    const rab = api.CATALOG.find(c => c.n === '狂犬病');
+    const okF = !!f && f.r === 'B' && Math.abs(parseFloat(f.v) - 174) < 0.5;
+    const okNat = !!nat && Math.abs(parseFloat(nat.v) - 691 / 1.40967e9 * 1e6) < 0.005;
+    const okRab = !!rab && Math.abs(parseFloat(rab.v) - 127 / 1.40967e9 * 1e6) < 0.005;
+    check('1g', 'CATALOG 公式复算：消防员 174 / 自然灾害 0.49 / 狂犬病 0.09（官方分子÷分母×1e6）',
+      okF && okNat && okRab,
+      (f ? 'v=' + f.v + ' r=' + f.r : 'CATALOG 中找不到消防员')
+      + ' nat=' + (nat ? nat.v : '—') + ' rab=' + (rab ? rab.v : '—'));
   }
   // 回归：③ 不确定带随暴露量展宽（σ 按「每单位暴露」的 CI 宽度乘暴露步数）
   {
@@ -468,6 +475,27 @@ check('5a', '市场行为→职业→GUO X Q 1998 → 今日 ¥3.28（31.5 万�
   const errs = api.validateData();
   check('28', '数据自检无错误（事件/CATALOG/信度/SRC/区间/年份/数值/竖线）', errs.length === 0,
     errs.length ? errs.slice(0, 5).join('；') : '事件 ' + api.EVENTS.flatMap(c=>c.items).length + ' 条');
+}
+
+// ============ 29. qAt 非法输入：NaN 抛错、越界钳制 ============
+{
+  let threw = false;
+  try { api.qAt(NaN, 'm'); } catch (e) { threw = true; }
+  const neg = api.qAt(-5, 'm');
+  const base0 = api.qAt(0, 'm');
+  const over = api.qAt(200, 'm');
+  check('29', 'qAt(NaN) 抛错（不再静默当作必死）；qAt(-5)=qAt(0)；qAt(200)=1',
+    threw && Math.abs(neg - base0) < 1e-12 && over === 1,
+    'throw=' + threw + '，q(-5)=' + neg + '，q(0)=' + base0 + '，q(200)=' + over);
+}
+
+// ============ 30. 组内插值：组首低于组率、组尾高于组率 ============
+{
+  const q = [40, 41, 42, 43, 44].map(a => api.qAt(a, 'm') * 1000);
+  const band = 2.245;
+  const ok = q[0] < band && q[4] > band && (q[4] - q[0]) > 0.5;
+  check('30', '40–44 岁组内年率不平（PCHIP 插值），组首 ' + q[0].toFixed(3) + '‰ < 组率 ' + band + '‰ < 组尾 ' + q[4].toFixed(3) + '‰',
+    ok, '组内极差 ' + (q[4] - q[0]).toFixed(3) + '‰');
 }
 
 // ---- 汇总 ----

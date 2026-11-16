@@ -1,9 +1,9 @@
 {
   "name": "death-ledger",
   "private": true,
-  "version": "1.0.3",
+  "version": "1.0.4",
   "license": "CC-BY-NC-4.0",
-  "description": "与死神的账本 · 用微死亡丈量中国人的风险（verify.js 38 条 + _test_funfact.js 趣闻回归 6 条 + _test_init.js 初始化冒烟 18 条 + _test_render.js 已填状态渲染 44 条）",
+  "description": "与死神的账本 · 用微死亡丈量中国人的风险（verify.js 40 条 + _test_funfact.js 趣闻回归 6 条 + _test_init.js 初始化冒烟 18 条 + _test_render.js 已填状态渲染 44 条）",
   "scripts": {
     "test": "node verify.js && node _test_funfact.js && node _test_init.js && node _test_render.js",
     "lint": "node lint.js",
