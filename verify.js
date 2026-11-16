@@ -46,14 +46,23 @@ function makeEl() {
   };
 }
 const elStub = makeEl();
+const _elCache = new Map();
+function elById(id) { if (!_elCache.has(id)) _elCache.set(id, makeEl()); return _elCache.get(id); }
 const document = {
-  getElementById: () => elStub,
+  getElementById: (id) => elById(id),
   querySelector: () => elStub,
   querySelectorAll: () => [],
   createElement: () => makeEl(),
   addEventListener() {},
 };
-const localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+const _store = new Map();
+const localStorage = {
+  getItem: (k) => (_store.has(k) ? _store.get(k) : null),
+  setItem: (k, v) => { _store.set(k, String(v)); },
+  removeItem: (k) => { _store.delete(k); },
+  get length() { return _store.size; },
+  key: (i) => { const ks = Array.from(_store.keys()); return i < ks.length ? ks[i] : null; },
+};
 const window = { devicePixelRatio: 1, localStorage };
 
 const sandbox = {
@@ -68,13 +77,13 @@ vm.createContext(sandbox);
 
 // ---- 包裹成 IIFE，导出需要的符号（含可改 tau / 可强制正态抽样 z 的闭包 setter）----
 const wrapped = `(function(){\n${core}\nreturn {
-  MALE, FEMALE, EVENTS, CATALOG, REL, SRC, COEF_FACTORS, MEAN_REF, COEF_CI, VSL, IDX, DIET_IDS,
+  MALE, FEMALE, EVENTS, CATALOG, REL, SRC, COEF_FACTORS, MEAN_REF, COEF_CI, VSL, IDX, DIET_IDS, Storage,
   EV_RANGE, EV_YEAR, CAP_SIGMA,
   qAt, computeCoefficients, computeSurvival, lifeExpectancyYears, saturate, bodyShapeFactor, colorTone, validateData,
   activityFactor, dietFactor, rawFactor, anchorDivisor, meanRef, coefMM, sigmaFromCI,
   monteCarloBand, sampleCoeff, eventTotalMicromort, computeFromParts,
   DEFL_INC, DEFL_CPI, DEFL_BASE, deflIncomeRatio, deflCpiCum, deflFactor,
-  vsalFor, yuanText, VSL_PICK, VSL_DOMAIN_OF,
+  vsalFor, yuanText, vslRangeText, vslFieldStats, VSL_PICK, VSL_DOMAIN_OF,
   K_LIFESTYLE, CAP_METABOLIC, TAU_DEFAULT,
   setTau(t){ tau = t; }, getTau(){ return tau; },
   setZ(z){ Z_FORCE = z; }, getLastCapS(){ return lastCapS; },
@@ -103,14 +112,86 @@ function near(id, label, actual, expected, tol) {
 // ---- 常用：40 岁男 ----
 const AGE = 40, SEX = 'm';
 
-console.log('死亡风险模拟器 · 验收标准复跑（验收标准 + 回归断言）\n');
+console.log('死亡风险模拟器 · 验收标准复跑\n');
 
 // ============ 1. 年度背景风险 ============
 {
   const q = api.qAt(AGE, SEX);
   const mm = q * 1e6;
-  check('1', '年龄 40 男 → PCHIP 单岁背景风险 ≈ 1922 微死亡（5 年组 2.245‰ 保持）',
+  check('1', '年龄 40 男 → PCHIP 单岁背景风险 ≈ 1922 微死亡（40–44 岁组 2.245‰ 平滑到单岁）',
     Math.round(mm) === 1922, `qAt(40,"m")=${mm.toFixed(1)} 微死亡/年`);
+  // 回归：平滑表曾把 0–4 岁组率连乘 5 次、并丢弃 85–104 岁已存的单岁值
+  check('1b', '生命表婴幼段按单岁值重建：q0≈5.410‰、q1≈0.498‰',
+    Math.abs(api.qAt(0, 'm') * 1e3 - 5.410) < 0.001 && Math.abs(api.qAt(1, 'm') * 1e3 - 0.498) < 0.001,
+    `q0=${(api.qAt(0,'m')*1e3).toFixed(3)}‰ q1=${(api.qAt(1,'m')*1e3).toFixed(3)}‰`);
+  check('1c', '高龄段保留 Gompertz 单岁值：q90≈192.967‰',
+    Math.abs(api.qAt(90, 'm') * 1e3 - 192.967) < 0.01,
+    `q90=${(api.qAt(90,'m')*1e3).toFixed(3)}‰`);
+  // 回归：Storage 门面缺 length/key 时，导出与清除按钮会静默空转
+  try {
+    api.Storage.setItem('rb_schema', '2'); api.Storage.setItem('rb_last', '{}');
+    api.Storage.setItem('rb_disclaimer_ok', '1'); api.Storage.setItem('other_key', 'x');
+    const ks = api.Storage.keys('rb_');
+    check('1d', 'Storage.keys("rb_") 能枚举已存键（导出/清除按钮依赖）',
+      ks.length === 3 && ks.indexOf('other_key') === -1, 'keys=' + JSON.stringify(ks));
+  } catch (e) {
+    check('1d', 'Storage.keys("rb_") 能枚举已存键（导出/清除按钮依赖）', false, String(e && e.message || e));
+  }
+  // 回归：85 岁原本是 5 岁组平填与 Gompertz 单岁值的交界，曾出现 84→85 的 ×1.6 跳变；
+  // 现在两侧都来自同一条单调曲线，要求接缝比值落在邻域内、且 12–100 岁无 >10% 的折点。
+  {
+    const seg = (q, a) => q[a] / q[a - 1];
+    const mSeg = seg(api.MALE, 85), fSeg = seg(api.FEMALE, 85);
+    const mNb = [seg(api.MALE, 84), seg(api.MALE, 86)], fNb = [seg(api.FEMALE, 84), seg(api.FEMALE, 86)];
+    const okSeam = mSeg > Math.min(...mNb) * 0.85 && mSeg < Math.max(...mNb) * 1.15
+                && fSeg > Math.min(...fNb) * 0.85 && fSeg < Math.max(...fNb) * 1.15;
+    check('1e', '84→85 岁无缝：接缝比值与邻域一致（男 ' + mSeg.toFixed(3) + ' / 女 ' + fSeg.toFixed(3) + '）', okSeam);
+    const bad = [];
+    for (const arr of [api.MALE, api.FEMALE]) {
+      for (let a = 12; a < 100; a++) {
+        const r = seg(arr, a), nb = (seg(arr, a - 1) + seg(arr, a + 1)) / 2;
+        if (Math.abs(r / nb - 1) > 0.10) bad.push(a + '→' + (a + 1) + ':' + (r / nb - 1).toFixed(2));
+      }
+    }
+    check('1f', '12–100 岁无 >10% 的曲线折点（PCHIP 平滑无台阶）', bad.length === 0, bad.slice(0, 5).join(' '));
+  }
+  // 回归：消防员由「自媒体推算 D 级」改为「官方分子 ÷ 官方分母 B 级」
+  {
+    const f = api.CATALOG.find(c => c.n === '消防员');
+    check('1g', '消防员 = 官方分子÷官方分母（174 微死亡，B 级）',
+      !!f && f.r === 'B' && Math.abs(parseFloat(f.v) - 174) < 0.5,
+      f ? 'v=' + f.v + ' r=' + f.r : 'CATALOG 中找不到消防员');
+  }
+  // 回归：③ 不确定带随暴露量展宽（σ 按「每单位暴露」的 CI 宽度乘暴露步数）
+  {
+    const spread = (sbp) => {
+      const res = api.computeCoefficients(AGE, SEX, null, null, sbp, null, null, null, null, null, null);
+      const b = api.monteCarloBand(AGE, SEX, res, 0, 'month', 120, 600);
+      const at = b[120];
+      return (at.p975 - at.p025) / at.p50;
+    };
+    const s120 = spread(120), s180 = spread(180);
+    check('1h', '③ 不确定带随暴露量展宽：180 mmHg 的带宽 ≥ 2× 120 mmHg',
+      s180 > s120 * 2,
+      '120=' + (s120 * 100).toFixed(3) + '% 180=' + (s180 * 100).toFixed(3) + '%');
+  }
+  // 回归：③ 心率+睡眠同时偏离时给出「剔除重叠项」的同一口径系数，单项时不提示
+  {
+    const both = api.computeCoefficients(AGE, SEX, 32, null, 150, null, null, 100, 5, null, null);
+    const onlyHr = api.computeCoefficients(AGE, SEX, 32, null, 150, null, null, 100, null, null, null);
+    const hasAlt = both.note.some(s => s.indexOf('剔除后同一口径') >= 0);
+    const noAlt = !onlyHr.note.some(s => s.indexOf('剔除后同一口径') >= 0);
+    check('1i', '③ 心率+睡眠重叠给出剔除后的同一口径系数（仅一项时不提示）', hasAlt && noAlt,
+      'both=' + hasAlt + ' onlyHr=' + noAlt);
+  }
+  // 回归：⑤ VSL 给出同领域四分位区间（点估计不变）
+  {
+    const txt = api.vslRangeText('跌倒');
+    const st = api.vslFieldStats('跌倒');
+    check('1j', '⑤ VSL 同领域四分位区间可算（n≥3、lo<hi）',
+      !!st && st.n >= 3 && st.lo < st.hi && /¥[\d.]+–¥[\d.]+/.test(txt),
+      txt || '(空)');
+  }
 }
 
 // ============ 2. extra 叠加后曲线下降 ============
@@ -215,11 +296,15 @@ check('5a', '市场行为→职业→GUO X Q 1998 → 今日 ¥3.28（31.5 万�
 
   api.setTau(1.3);
 
-  // Q-04 改判：CAP 只管 ≥2 因素的饱和组合，单项极端值保留裸 HR（用户 2026-11-13 裁定）
+  // Q-04 再改判（2026-11-16，1.0.3）：单项极端值同样受 CAP 约束——Li 2016 的 1.92 是五成分联合上限，单项 2.45 无流行病学对应
   const glu15 = api.computeCoefficients(AGE, SEX, null, null, null, 15, null, null, null, null, null, null, null);
-  check('9e', '只填血糖 15 mmol/L → 裸 HR ≈ 2.45，可高于 CAP 1.92（CAP 只约束 ≥2 因素的组合）',
-    Math.abs(glu15.coeff - 2.4496) <= 0.05 && glu15.coeff > api.CAP_METABOLIC,
+  check('9e', '只填血糖 15 mmol/L → 封顶到 CAP 1.92（单项不得越过五成分联合上限）',
+    Math.abs(glu15.coeff - api.CAP_METABOLIC) <= 1e-9 && glu15.coeff <= api.CAP_METABOLIC + 1e-12,
     'coeff=' + glu15.coeff.toFixed(4) + '，CAP=' + api.CAP_METABOLIC.toFixed(2));
+  const glu15mix = api.computeCoefficients(AGE, SEX, 35, null, 180, 15, null, null, null, null, null, null, null);
+  check('9f', '血糖 15 + BMI 35 + 血压 180 → 仍 ≤ CAP，且不低于任一单因素（封顶后不再抬升，但绝不下降）',
+    glu15mix.coeff <= api.CAP_METABOLIC + 1e-9 && glu15mix.coeff >= glu15.coeff - 1e-9,
+    'mix=' + glu15mix.coeff.toFixed(4) + '，单血糖=' + glu15.coeff.toFixed(4) + '，CAP=' + api.CAP_METABOLIC.toFixed(2));
 }
 
 // ============ 10. 代谢簇单调性（加危险因素不降综合系数） ============

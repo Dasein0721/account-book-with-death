@@ -389,5 +389,20 @@ try { snapTxt = vm.runInContext('Report.build()', sandbox); } catch (e) { snapEr
 ok('39 报告与当前页面同快照（年龄/系数都在）', !snapErr && snapTxt.indexOf('40 岁') >= 0 && snapTxt.indexOf('综合状态系数') >= 0,
   snapErr ? snapErr.message : ('len=' + snapTxt.length));
 
+// 40/41：第5章改写后，「每天」在比率（|寿命差| ÷ 余生寿命）超过 0.5 时自动改用「年」显示。
+// 阈值 0.5 的依据：约 0.25 时是「−6 小时/天」，读者仍能理解；到 0.5（−12 小时/天）才真的读不成「每天」。
+function ledAt(age, smoke){
+  document.getElementById('age').value = String(age);
+  document.getElementById('smoke').value = String(smoke);
+  sandbox.render();
+  return document.getElementById('lspanLedger').innerHTML;
+}
+const hasYear = h => /[−\-+]?[0-9.]+ 年/.test(h);
+let swErr = null, heavyLed = '', lightLed = '';
+try { heavyLed = ledAt(85, 60); lightLed = ledAt(40, 10); } catch (e) { swErr = e; }
+ok('40 重暴露（85 岁 / 60 支每天）总体收支改用「年」', !swErr && hasYear(heavyLed),
+  swErr ? swErr.message : ((heavyLed.match(/[−\-+]?[0-9.]+ 年/) || [''])[0] || '未见「年」'));
+ok('41 一般暴露（40 岁 / 10 支每天）仍按「分钟/天」', !swErr && !hasYear(lightLed) && lightLed.indexOf('分钟/天') >= 0,
+  swErr ? swErr.message : ((lightLed.match(/[−\-+]?[0-9.]+ (?:分钟|小时)\/天/) || [''])[0] || '未见「分钟/天」'));
 console.log('\n结果：' + pass + ' 通过 / ' + fail + ' 失败（共 ' + (pass + fail) + ' 条）');
 process.exit(fail === 0 ? 0 : 1);

@@ -6,8 +6,8 @@ authors:
   - family-names: "Dasein"
     given-names: "0721"
     alias: "Dasein0721"
-version: 1.0.2
-date-released: "2026-11-14"
+version: 1.0.3
+date-released: "2026-11-16"
 license: "CC-BY-NC-4.0"
 repository-code: "https://github.com/Dasein0721/account-book-with-death"
 url: "https://github.com/Dasein0721/account-book-with-death"
