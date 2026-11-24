@@ -498,6 +498,80 @@ check('5a', '市场行为→职业→GUO X Q 1998 → 今日 ¥3.28（31.5 万�
     ok, '组内极差 ' + (q[4] - q[0]).toFixed(3) + '‰');
 }
 
+// ============ 31. 「八成四」出处（1.0.5 起：封面只注官方口径，差异下放附录 A） ============
+{
+  const ok = html.indexOf("《健康中国行动（2019—2030 年）》") >= 0
+          && html.indexOf("逐条写在附录 A") >= 0
+          && html.indexOf("五类只合到约七成") >= 0
+          && html.indexOf("拼在一起不等于全国总量") >= 0
+          && html.indexOf("不是矛盾") < 0;
+  check('31', '封面 84% 只注《健康中国行动》官方口径并指向附录 A；附录 A 交代事件表约七成的两处原因（分母与分类），封面不再自行结案', ok);
+}
+
+// ============ 32. 附录 A 的 e₀ 对照句（1.0.3 改对、1.0.4 写回，1.0.5 改回并锁死） ============
+{
+  const stale = html.indexOf("比国家公布值低约 2–3 岁") >= 0;
+  const ok = !stale && html.indexOf("低约 0.6 岁") >= 0 && html.indexOf("78.45") >= 0;
+  check('32', '附录 A e₀ 对照句：0.6 岁口径 + WHO 总人口 78.45，旧「2–3 岁」不再出现', ok,
+    'stale=' + stale);
+}
+
+// ============ 33–40. 无障碍与可用性（1.0.5 同批回归锁定） ============
+{
+  const numsLive = /id="nums"[^>]*aria-live/.test(html);
+  const ok = !numsLive
+    && html.indexOf('id="numsSr"') >= 0
+    && html.indexOf('aria-atomic="true"') >= 0
+    && src.indexOf('数字卡已更新') >= 0;
+  check('33', '数字卡不再整块 aria-live（避免重播上百字），改由 #numsSr 播一句摘要', ok, 'numsLive=' + numsLive);
+}
+{
+  const ok = html.indexOf('--mut:#59544B') >= 0
+    && html.indexOf('.src-dim{font-size:12px;color:#4E4A41;}') >= 0;
+  check('34', '正文灰色说明文字加深到 AA 以上（--mut #59544B、.src-dim #4E4A41；实测最低 6.0:1）', ok);
+}
+{
+  const ok = html.indexOf('min-height:36px') >= 0
+    && html.indexOf('min-height:34px') >= 0
+    && html.indexOf('min-height:32px') >= 0;
+  check('35', '按钮 / 输入框 / 复选项设最小点击高度（桌面 32–36px，移动 44px）', ok);
+}
+{
+  const ok = src.indexOf('cap.className = "sr-only"') >= 0
+    && src.indexOf('hint.className = "tbl-hint"') >= 0
+    && html.indexOf('.tbl-hint{') >= 0;
+  check('36', '数据表补 programmatic 标题（caption.sr-only），宽表溢出时才显示横滑提示', ok);
+}
+{
+  const ok = src.indexOf('已合并到列表里的') >= 0 && src.indexOf('同名条目重复') >= 0;
+  check('37', '同名同口径重复添加时合并数量并提示；同名条目（含状态项）汇总到 #evDupHint', ok);
+}
+{
+  const ok = src.indexOf("aria-label=\"移除第 '+(i+1)+' 条：'") >= 0;
+  check('38', '删除按钮读作「移除第 N 条：名称」（同名行不再无法区分）', ok);
+}
+{
+  const ok = src.indexOf('条状态对比项不参与累计') >= 0 && src.indexOf('不参与「事件累计」') >= 0;
+  check('39', '状态对比行标注「不参与事件累计、不叠加曲线」，并在合计旁报出条数', ok);
+}
+{
+  const ok = src.indexOf('const APP_VERSION = "1.0.5"') >= 0
+    && src.indexOf("个人风险报告（v'+APP_VERSION+'）") >= 0
+    && html.indexOf('1.0.5（2026-11-17 · 当前版本') >= 0;
+  check('40', '报告头版本引用单一常量 APP_VERSION（不再手写），版本记录含 1.0.5', ok);
+}
+
+// ============ 33. 蓝带固定种子：同一输入两次计算结果逐点一致 ============
+{
+  const res = api.computeCoefficients(AGE, SEX, 30, 100, 160, 7, 4, null, null, null, null, null, null);
+  const b1 = api.monteCarloBand(AGE, SEX, res, 0, 'year', undefined, 60, 'seed-test-A');
+  api.monteCarloBand(AGE, SEX, res, 0, 'year', undefined, 60, 'seed-test-B');
+  const b2 = api.monteCarloBand(AGE, SEX, res, 0, 'year', undefined, 60, 'seed-test-A');
+  const same = b1.length === b2.length && b1.every((x, i) => x.p025 === b2[i].p025 && x.p50 === b2[i].p50 && x.p975 === b2[i].p975);
+  check('33', '蓝带按输入指纹固定种子：同一档案两次计算逐点一致（刷新/打印不漂移）', same,
+    'points=' + b1.length);
+}
+
 // ---- 汇总 ----
 console.log(`\n结果：${pass} 通过 / ${fail} 失败（共 ${pass + fail} 条）`);
 if (fail > 0) {

@@ -206,6 +206,31 @@ const roundTrip = inCtx(`(function(){
 })()`, false);
 check('18', 'collectState/applyState 一次往返保持同一状态', roundTrip && roundTrip.same === true, JSON.stringify(roundTrip));
 
+
+// 19–20. 坏存储留底 + 可见提示（1.0.5：不再静默丢弃）
+const corruptEvents = inCtx(`(function(){
+  document.getElementById("dataWarn").textContent = "";
+  document.getElementById("dataWarn").hidden = true;
+  localStorage.removeItem("rb_events_corrupt");
+  localStorage.setItem("rb_events", "{bad");
+  loadState();
+  const w = document.getElementById("dataWarn");
+  return JSON.stringify({ warn: w.textContent, hidden: w.hidden, backup: localStorage.getItem("rb_events_corrupt") });
+})()`, false);
+const ce = corruptEvents ? JSON.parse(corruptEvents) : {};
+check('19', '坏 rb_events：原文另存 rb_events_corrupt 并在 #dataWarn 提示', ce.backup === "{bad" && ce.hidden === false && /格式异常/.test(ce.warn || ""), JSON.stringify(ce).slice(0, 160));
+
+const corruptInputs = inCtx(`(function(){
+  document.getElementById("dataWarn").textContent = "";
+  localStorage.removeItem("rb_inputs_corrupt");
+  localStorage.setItem("rb_inputs", "{bad");
+  loadState();
+  const w = document.getElementById("dataWarn");
+  return JSON.stringify({ warn: w.textContent, backup: localStorage.getItem("rb_inputs_corrupt") });
+})()`, false);
+const ci = corruptInputs ? JSON.parse(corruptInputs) : {};
+check('20', '坏 rb_inputs：原文另存 rb_inputs_corrupt 并在 #dataWarn 提示', ci.backup === "{bad" && /格式异常/.test(ci.warn || ""), JSON.stringify(ci).slice(0, 160));
+
 console.log('\n结果：' + pass.length + ' 通过 / ' + fail.length + ' 失败（共 ' + (pass.length + fail.length) + ' 条）');
 if (fail.length) { console.error('✗ 初始化冒烟未通过。'); process.exit(1); }
 console.log('✓ 初始化路径冒烟通过。');

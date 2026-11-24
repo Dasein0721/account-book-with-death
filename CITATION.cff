@@ -4,11 +4,11 @@ type: software
 title: "与死神的账本：用微死亡丈量中国人的风险"
 abstract: "一本离线单页小书：用微死亡（micromort，百万分之一的死亡概率）把日常风险放到同一把尺子上，包含中国生命表基线、九个健康状态系数、58 条事件、24 篇中国 VSL 研究，以及可交互的个人风险换算。"
 authors:
-  - family-names: "Dasein0721"
-    name: "Dasein0721"
-version: "1.0.4"
-date-released: "2026-11-16"
+  - name: "Dasein0721"
+version: "1.0.5"
+date-released: "2026-11-17"
 license: "CC-BY-NC-4.0"
+repository-code: "https://github.com/Dasein0721/account-book-with-death"
 keywords:
   - micromort
   - risk communication
